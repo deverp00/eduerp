@@ -1,5 +1,5 @@
 // ============================================================
-// TEACHERS & STAFF MODULE – CRUD, Render, Filters, Conditional
+// TEACHERS & STAFF – CRUD + Render + Conditional Logic
 // ============================================================
 
 import { createData, updateData, deleteData } from './firebase.js';
@@ -73,6 +73,23 @@ function renderStaff(filter = 'all', search = '') {
 }
 
 // ============================================================
+// CONDITIONAL LOGIC HELPER
+// ============================================================
+
+function setupStaffConditionalLogic(designationId, subjectGroupId) {
+  const designSelect = document.getElementById(designationId);
+  const subjectGroup = document.getElementById(subjectGroupId);
+  if (designSelect && subjectGroup) {
+    const update = () => {
+      subjectGroup.style.display = designSelect.value === 'Subject Teacher' ? 'block' : 'none';
+    };
+    designSelect.addEventListener('change', update);
+    // Initial state
+    update();
+  }
+}
+
+// ============================================================
 // ADD STAFF
 // ============================================================
 
@@ -108,31 +125,39 @@ function showAddStaffModal() {
     const subject = subjectEl ? subjectEl.value : 'N/A';
     const email = document.getElementById('addStaffEmail').value.trim();
 
+    // Validate
     if (!name || !email) {
       window.showToast('Please fill all fields', 'error');
       return;
     }
+    if (!email.includes('@')) {
+      window.showToast('Please enter a valid email address', 'error');
+      return;
+    }
 
     const newStaff = { name, role, designation, subDepartment: subject, email };
-    const result = await createData('teachers', newStaff);
-    window.TEACHERS.push(result);
-    window.showToast('Added successfully', 'success');
-    renderStaff();
-    if (window.renderDashboard) window.renderDashboard();
-    window.closeModal();
+
+    const btn = document.querySelector('#modal .btn-primary');
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+
+    try {
+      const result = await createData('teachers', newStaff);
+      window.TEACHERS.push(result);
+      window.showToast('Added successfully', 'success');
+      renderStaff();
+      if (window.renderDashboard) window.renderDashboard();
+      window.closeModal();
+    } catch (error) {
+      console.error('Add staff error:', error);
+      window.showToast('Failed to add staff. Please try again.', 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = 'Add'; }
+    }
   });
 
-  // Conditional logic for Subject Teacher dropdown
+  // Conditional logic
   setTimeout(() => {
-    const designSelect = document.getElementById('addStaffDesignation');
-    const subjectGroup = document.getElementById('addSubjectGroup');
-    if (designSelect && subjectGroup) {
-      designSelect.addEventListener('change', function() {
-        subjectGroup.style.display = this.value === 'Subject Teacher' ? 'block' : 'none';
-      });
-      // Initial state
-      subjectGroup.style.display = designSelect.value === 'Subject Teacher' ? 'block' : 'none';
-    }
+    setupStaffConditionalLogic('addStaffDesignation', 'addSubjectGroup');
   }, 50);
 }
 
@@ -174,31 +199,40 @@ async function editStaff(id) {
     const subject = document.getElementById('editStaffSubject') ? document.getElementById('editStaffSubject').value : 'N/A';
     const email = document.getElementById('editStaffEmail').value.trim();
 
+    // Validate
     if (!name || !email) {
       window.showToast('Please fill all fields', 'error');
       return;
     }
+    if (!email.includes('@')) {
+      window.showToast('Please enter a valid email address', 'error');
+      return;
+    }
 
     const updated = { name, role, designation, subDepartment: subject, email };
-    await updateData('teachers', id, updated);
-    const idx = window.TEACHERS.findIndex(t => t.id === id);
-    if (idx !== -1) window.TEACHERS[idx] = { ...window.TEACHERS[idx], ...updated };
-    window.showToast('Updated successfully', 'success');
-    renderStaff();
-    if (window.renderDashboard) window.renderDashboard();
-    window.closeModal();
+
+    const btn = document.querySelector('#modal .btn-primary');
+    if (btn) { btn.disabled = true; btn.textContent = 'Updating...'; }
+
+    try {
+      await updateData('teachers', id, updated);
+      const idx = window.TEACHERS.findIndex(t => t.id === id);
+      if (idx !== -1) window.TEACHERS[idx] = { ...window.TEACHERS[idx], ...updated };
+      window.showToast('Updated successfully', 'success');
+      renderStaff();
+      if (window.renderDashboard) window.renderDashboard();
+      window.closeModal();
+    } catch (error) {
+      console.error('Update staff error:', error);
+      window.showToast('Failed to update staff. Please try again.', 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = 'Update'; }
+    }
   });
 
-  // Conditional logic for edit form
+  // Conditional logic
   setTimeout(() => {
-    const designSelect = document.getElementById('editStaffDesignation');
-    const subjectGroup = document.getElementById('editSubjectGroup');
-    if (designSelect && subjectGroup) {
-      designSelect.addEventListener('change', function() {
-        subjectGroup.style.display = this.value === 'Subject Teacher' ? 'block' : 'none';
-      });
-      subjectGroup.style.display = designSelect.value === 'Subject Teacher' ? 'block' : 'none';
-    }
+    setupStaffConditionalLogic('editStaffDesignation', 'editSubjectGroup');
   }, 50);
 }
 
@@ -208,11 +242,22 @@ async function editStaff(id) {
 
 async function deleteStaff(id) {
   if (!confirm('Delete this record?')) return;
-  await deleteData('teachers', id);
-  window.TEACHERS = window.TEACHERS.filter(t => t.id !== id);
-  window.showToast('Deleted', 'success');
-  renderStaff();
-  if (window.renderDashboard) window.renderDashboard();
+
+  const btn = document.querySelector(`button[data-id="${id}"][data-action="deleteStaff"]`);
+  if (btn) { btn.disabled = true; btn.textContent = 'Deleting...'; }
+
+  try {
+    await deleteData('teachers', id);
+    window.TEACHERS = window.TEACHERS.filter(t => t.id !== id);
+    window.showToast('Deleted', 'success');
+    renderStaff();
+    if (window.renderDashboard) window.renderDashboard();
+  } catch (error) {
+    console.error('Delete staff error:', error);
+    window.showToast('Failed to delete staff. Please try again.', 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Delete'; }
+  }
 }
 
 // ============================================================
