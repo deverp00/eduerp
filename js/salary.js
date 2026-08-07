@@ -1,5 +1,5 @@
 // ============================================================
-// SALARY MODULE – CRUD, Render, Filters
+// SALARY MODULE – CRUD, Render, Filters, One-payment-per-month
 // ============================================================
 
 import { createData, updateData, deleteData } from './firebase.js';
@@ -54,54 +54,74 @@ function renderSalary(statusFilter = 'all', search = '') {
       <td>${s.paymentMethod || '—'}</td>
       <td>
         <div class="actions-cell">
-          <button class="btn-edit" data-id="${s.id}" data-action="editSalary">Edit</button>
-          <button class="btn-delete" data-id="${s.id}" data-action="deleteSalary">Delete</button>
+          <button class="btn-receipt" onclick="window.showSalaryReceipt('${s.id}')">Receipt</button>
+          <button class="btn-delete" onclick="window.deleteSalary('${s.id}')">Delete</button>
         </div>
       </td>
     </tr>
   `).join('');
 
-  // Attach event listeners
-  tbody.querySelectorAll('[data-action="editSalary"]').forEach(btn => {
-    btn.addEventListener('click', () => editSalary(btn.dataset.id));
-  });
-  tbody.querySelectorAll('[data-action="deleteSalary"]').forEach(btn => {
-    btn.addEventListener('click', () => deleteSalary(btn.dataset.id));
-  });
+  // Attach event listeners for delete buttons (already using onclick)
 }
 
 // ============================================================
-// ADD SALARY
+// GET ELIGIBLE TEACHERS FOR SELECTED MONTH/YEAR
+// ============================================================
+
+function getEligibleTeachers(month, year) {
+  const allTeachers = window.TEACHERS || [];
+  const paidTeachers = window.SALARY_RECORDS
+    .filter(s => s.month === month && s.year === year)
+    .map(s => s.employeeId);
+  return allTeachers.filter(t => !paidTeachers.includes(t.id));
+}
+
+// ============================================================
+// ADD SALARY (WITH ELIGIBILITY & DUPLICATE CHECK)
 // ============================================================
 
 function showAddSalaryModal() {
-  const teachers = window.TEACHERS || [];
-  const employeeOptions = teachers.map(t =>
+  // Default to current month/year
+  const now = new Date();
+  const defaultMonth = now.toLocaleString('default', { month: 'long' });
+  const defaultYear = now.getFullYear();
+
+  // Get eligible teachers for default month/year
+  const eligible = getEligibleTeachers(defaultMonth, defaultYear);
+  const employeeOptions = eligible.map(t =>
     `<option value="${t.id}">${t.name} (${t.role})</option>`
   ).join('');
 
   const monthOptions = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
-    .map(m => `<option value="${m}">${m}</option>`).join('');
+    .map(m => `<option value="${m}" ${m === defaultMonth ? 'selected' : ''}>${m}</option>`).join('');
 
   const yearOptions = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i)
-    .map(y => `<option value="${y}">${y}</option>`).join('');
+    .map(y => `<option value="${y}" ${y === defaultYear ? 'selected' : ''}>${y}</option>`).join('');
 
   const paymentMethodOptions = ['Bank Transfer', 'Cash', 'Cheque', 'Digital Wallet']
     .map(p => `<option value="${p}">${p}</option>`).join('');
 
   const modalHTML = `
-    <div class="form-group"><label>Employee</label><select id="addSalaryEmployee">${employeeOptions}</select></div>
-    <div class="form-group"><label>Month</label><select id="addSalaryMonth">${monthOptions}</select></div>
-    <div class="form-group"><label>Year</label><select id="addSalaryYear">${yearOptions}</select></div>
-    <div class="form-group"><label>Amount (₹)</label><input type="number" id="addSalaryAmount" placeholder="Enter salary amount" /></div>
+    <div class="form-group"><label>Month</label>
+      <select id="addSalaryMonth" style="width:100%; padding:0.5rem; border:1px solid var(--gray-200); border-radius:var(--radius);">${monthOptions}</select>
+    </div>
+    <div class="form-group"><label>Year</label>
+      <select id="addSalaryYear" style="width:100%; padding:0.5rem; border:1px solid var(--gray-200); border-radius:var(--radius);">${yearOptions}</select>
+    </div>
+    <div class="form-group"><label>Teacher</label>
+      <select id="addSalaryEmployee" style="width:100%; padding:0.5rem; border:1px solid var(--gray-200); border-radius:var(--radius);">
+        ${employeeOptions || '<option value="">No eligible teachers</option>'}
+      </select>
+    </div>
+    <div class="form-group"><label>Amount (₹)</label><input type="number" id="addSalaryAmount" placeholder="Enter salary amount" style="width:100%; padding:0.5rem; border:1px solid var(--gray-200); border-radius:var(--radius);" /></div>
     <div class="form-group"><label>Status</label>
-      <select id="addSalaryStatus">
+      <select id="addSalaryStatus" style="width:100%; padding:0.5rem; border:1px solid var(--gray-200); border-radius:var(--radius);">
         <option value="paid">Paid</option>
         <option value="pending">Pending</option>
       </select>
     </div>
     <div class="form-group"><label>Payment Method</label>
-      <select id="addSalaryPaymentMethod">
+      <select id="addSalaryPaymentMethod" style="width:100%; padding:0.5rem; border:1px solid var(--gray-200); border-radius:var(--radius);">
         <option value="">— Select —</option>
         ${paymentMethodOptions}
       </select>
@@ -109,29 +129,40 @@ function showAddSalaryModal() {
   `;
 
   window.openModal('Add Salary', modalHTML, 'Add Salary', async () => {
-    const employeeId = document.getElementById('addSalaryEmployee').value;
     const month = document.getElementById('addSalaryMonth').value;
     const year = parseInt(document.getElementById('addSalaryYear').value);
+    const employeeId = document.getElementById('addSalaryEmployee').value;
     const amount = parseFloat(document.getElementById('addSalaryAmount').value);
     const status = document.getElementById('addSalaryStatus').value;
     const paymentMethod = document.getElementById('addSalaryPaymentMethod').value;
 
-    // Validate
     if (!employeeId || !month || !year || isNaN(amount) || amount <= 0) {
       window.showToast('Please fill all fields with valid values', 'error');
       return;
     }
 
-    // Payment method required if status is "paid"
     if (status === 'paid' && !paymentMethod) {
       window.showToast('Payment method is required when status is "paid"', 'error');
       return;
     }
 
+    // Duplicate check (final safeguard)
+    const existing = window.SALARY_RECORDS.find(s => s.employeeId === employeeId && s.month === month && s.year === year);
+    if (existing) {
+      window.showToast('This teacher already has a salary record for this month/year.', 'error');
+      return;
+    }
+
     const employee = window.TEACHERS.find(t => t.id === employeeId);
     if (!employee) {
-      window.showToast('Employee not found', 'error');
+      window.showToast('Teacher not found', 'error');
       return;
+    }
+
+    // Generate receipt number if paid
+    let receiptNo = '';
+    if (status === 'paid') {
+      receiptNo = `SAL-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
     }
 
     const newSalary = {
@@ -143,9 +174,10 @@ function showAddSalaryModal() {
       amount,
       status,
       paymentMethod: status === 'paid' ? paymentMethod : '',
+      receiptNo: receiptNo,
+      paymentDate: status === 'paid' ? new Date().toISOString().split('T')[0] : ''
     };
 
-    // Show loading on button
     const btn = document.querySelector('#modal .btn-primary');
     if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
 
@@ -163,104 +195,27 @@ function showAddSalaryModal() {
       if (btn) { btn.disabled = false; btn.textContent = 'Add Salary'; }
     }
   });
-}
 
-// ============================================================
-// EDIT SALARY
-// ============================================================
+  // Auto-refresh eligible teachers when month/year changes
+  setTimeout(() => {
+    const monthSelect = document.getElementById('addSalaryMonth');
+    const yearSelect = document.getElementById('addSalaryYear');
+    const employeeSelect = document.getElementById('addSalaryEmployee');
 
-async function editSalary(id) {
-  const salary = window.SALARY_RECORDS.find(s => s.id === id);
-  if (!salary) return;
-
-  const teachers = window.TEACHERS || [];
-  const employeeOptions = teachers.map(t =>
-    `<option value="${t.id}" ${t.id === salary.employeeId ? 'selected' : ''}>${t.name} (${t.role})</option>`
-  ).join('');
-
-  const monthOptions = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
-    .map(m => `<option value="${m}" ${m === salary.month ? 'selected' : ''}>${m}</option>`).join('');
-
-  const yearOptions = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i)
-    .map(y => `<option value="${y}" ${y === salary.year ? 'selected' : ''}>${y}</option>`).join('');
-
-  const paymentMethodOptions = ['Bank Transfer', 'Cash', 'Cheque', 'Digital Wallet']
-    .map(p => `<option value="${p}" ${p === salary.paymentMethod ? 'selected' : ''}>${p}</option>`).join('');
-
-  const modalHTML = `
-    <div class="form-group"><label>Employee</label><select id="editSalaryEmployee">${employeeOptions}</select></div>
-    <div class="form-group"><label>Month</label><select id="editSalaryMonth">${monthOptions}</select></div>
-    <div class="form-group"><label>Year</label><select id="editSalaryYear">${yearOptions}</select></div>
-    <div class="form-group"><label>Amount (₹)</label><input type="number" id="editSalaryAmount" value="${salary.amount}" /></div>
-    <div class="form-group"><label>Status</label>
-      <select id="editSalaryStatus">
-        <option value="paid" ${salary.status === 'paid' ? 'selected' : ''}>Paid</option>
-        <option value="pending" ${salary.status === 'pending' ? 'selected' : ''}>Pending</option>
-      </select>
-    </div>
-    <div class="form-group"><label>Payment Method</label>
-      <select id="editSalaryPaymentMethod">
-        <option value="">— Select —</option>
-        ${paymentMethodOptions}
-      </select>
-    </div>
-  `;
-
-  window.openModal('Edit Salary', modalHTML, 'Update', async () => {
-    const employeeId = document.getElementById('editSalaryEmployee').value;
-    const month = document.getElementById('editSalaryMonth').value;
-    const year = parseInt(document.getElementById('editSalaryYear').value);
-    const amount = parseFloat(document.getElementById('editSalaryAmount').value);
-    const status = document.getElementById('editSalaryStatus').value;
-    const paymentMethod = document.getElementById('editSalaryPaymentMethod').value;
-
-    // Validate
-    if (!employeeId || !month || !year || isNaN(amount) || amount <= 0) {
-      window.showToast('Please fill all fields with valid values', 'error');
-      return;
+    function updateEligibleTeachers() {
+      const m = monthSelect.value;
+      const y = parseInt(yearSelect.value);
+      const eligible = getEligibleTeachers(m, y);
+      employeeSelect.innerHTML = eligible.map(t =>
+        `<option value="${t.id}">${t.name} (${t.role})</option>`
+      ).join('') || '<option value="">No eligible teachers</option>';
     }
 
-    // Payment method required if status is "paid"
-    if (status === 'paid' && !paymentMethod) {
-      window.showToast('Payment method is required when status is "paid"', 'error');
-      return;
+    if (monthSelect && yearSelect && employeeSelect) {
+      monthSelect.addEventListener('change', updateEligibleTeachers);
+      yearSelect.addEventListener('change', updateEligibleTeachers);
     }
-
-    const employee = window.TEACHERS.find(t => t.id === employeeId);
-    if (!employee) {
-      window.showToast('Employee not found', 'error');
-      return;
-    }
-
-    const updated = {
-      employeeId,
-      employeeName: employee.name,
-      role: employee.role,
-      month,
-      year,
-      amount,
-      status,
-      paymentMethod: status === 'paid' ? paymentMethod : '',
-    };
-
-    const btn = document.querySelector('#modal .btn-primary');
-    if (btn) { btn.disabled = true; btn.textContent = 'Updating...'; }
-
-    try {
-      await updateData('salaryRecords', id, updated);
-      const idx = window.SALARY_RECORDS.findIndex(s => s.id === id);
-      if (idx !== -1) window.SALARY_RECORDS[idx] = { ...window.SALARY_RECORDS[idx], ...updated };
-      window.showToast('Salary record updated successfully', 'success');
-      renderSalary();
-      if (window.renderDashboard) window.renderDashboard();
-      window.closeModal();
-    } catch (error) {
-      console.error('Update salary error:', error);
-      window.showToast('Failed to update salary record. Please try again.', 'error');
-    } finally {
-      if (btn) { btn.disabled = false; btn.textContent = 'Update'; }
-    }
-  });
+  }, 50);
 }
 
 // ============================================================
@@ -318,5 +273,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
 window.renderSalary = renderSalary;
 window.showAddSalaryModal = showAddSalaryModal;
-window.editSalary = editSalary;
 window.deleteSalary = deleteSalary;
