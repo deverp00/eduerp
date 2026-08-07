@@ -116,8 +116,15 @@ function showAddSalaryModal() {
     const status = document.getElementById('addSalaryStatus').value;
     const paymentMethod = document.getElementById('addSalaryPaymentMethod').value;
 
+    // Validate
     if (!employeeId || !month || !year || isNaN(amount) || amount <= 0) {
       window.showToast('Please fill all fields with valid values', 'error');
+      return;
+    }
+
+    // Payment method required if status is "paid"
+    if (status === 'paid' && !paymentMethod) {
+      window.showToast('Payment method is required when status is "paid"', 'error');
       return;
     }
 
@@ -138,12 +145,23 @@ function showAddSalaryModal() {
       paymentMethod: status === 'paid' ? paymentMethod : '',
     };
 
-    const result = await createData('salaryRecords', newSalary);
-    window.SALARY_RECORDS.push(result);
-    window.showToast('Salary record added successfully', 'success');
-    renderSalary();
-    if (window.renderDashboard) window.renderDashboard();
-    window.closeModal();
+    // Show loading on button
+    const btn = document.querySelector('#modal .btn-primary');
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+
+    try {
+      const result = await createData('salaryRecords', newSalary);
+      window.SALARY_RECORDS.push(result);
+      window.showToast('Salary record added successfully', 'success');
+      renderSalary();
+      if (window.renderDashboard) window.renderDashboard();
+      window.closeModal();
+    } catch (error) {
+      console.error('Add salary error:', error);
+      window.showToast('Failed to add salary record. Please try again.', 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = 'Add Salary'; }
+    }
   });
 }
 
@@ -196,8 +214,15 @@ async function editSalary(id) {
     const status = document.getElementById('editSalaryStatus').value;
     const paymentMethod = document.getElementById('editSalaryPaymentMethod').value;
 
+    // Validate
     if (!employeeId || !month || !year || isNaN(amount) || amount <= 0) {
       window.showToast('Please fill all fields with valid values', 'error');
+      return;
+    }
+
+    // Payment method required if status is "paid"
+    if (status === 'paid' && !paymentMethod) {
+      window.showToast('Payment method is required when status is "paid"', 'error');
       return;
     }
 
@@ -218,13 +243,23 @@ async function editSalary(id) {
       paymentMethod: status === 'paid' ? paymentMethod : '',
     };
 
-    await updateData('salaryRecords', id, updated);
-    const idx = window.SALARY_RECORDS.findIndex(s => s.id === id);
-    if (idx !== -1) window.SALARY_RECORDS[idx] = { ...window.SALARY_RECORDS[idx], ...updated };
-    window.showToast('Salary record updated successfully', 'success');
-    renderSalary();
-    if (window.renderDashboard) window.renderDashboard();
-    window.closeModal();
+    const btn = document.querySelector('#modal .btn-primary');
+    if (btn) { btn.disabled = true; btn.textContent = 'Updating...'; }
+
+    try {
+      await updateData('salaryRecords', id, updated);
+      const idx = window.SALARY_RECORDS.findIndex(s => s.id === id);
+      if (idx !== -1) window.SALARY_RECORDS[idx] = { ...window.SALARY_RECORDS[idx], ...updated };
+      window.showToast('Salary record updated successfully', 'success');
+      renderSalary();
+      if (window.renderDashboard) window.renderDashboard();
+      window.closeModal();
+    } catch (error) {
+      console.error('Update salary error:', error);
+      window.showToast('Failed to update salary record. Please try again.', 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = 'Update'; }
+    }
   });
 }
 
@@ -234,11 +269,22 @@ async function editSalary(id) {
 
 async function deleteSalary(id) {
   if (!confirm('Are you sure you want to delete this salary record?')) return;
-  await deleteData('salaryRecords', id);
-  window.SALARY_RECORDS = window.SALARY_RECORDS.filter(s => s.id !== id);
-  window.showToast('Salary record deleted', 'success');
-  renderSalary();
-  if (window.renderDashboard) window.renderDashboard();
+
+  const btn = document.querySelector(`button[data-id="${id}"][data-action="deleteSalary"]`);
+  if (btn) { btn.disabled = true; btn.textContent = 'Deleting...'; }
+
+  try {
+    await deleteData('salaryRecords', id);
+    window.SALARY_RECORDS = window.SALARY_RECORDS.filter(s => s.id !== id);
+    window.showToast('Salary record deleted', 'success');
+    renderSalary();
+    if (window.renderDashboard) window.renderDashboard();
+  } catch (error) {
+    console.error('Delete salary error:', error);
+    window.showToast('Failed to delete salary record. Please try again.', 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Delete'; }
+  }
 }
 
 // ============================================================
