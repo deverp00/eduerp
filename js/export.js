@@ -35,57 +35,33 @@ function getFilteredData(module) {
       return data;
     }
     case 'fees': {
-      const statusFilter = document.getElementById('feeStatusFilter')?.value || 'all';
-      const search = document.getElementById('feeUniversalSearch')?.value || '';
-      const classFilter = document.getElementById('feeClassFilter')?.value || 'all';
-      const sectionFilter = document.getElementById('feeSectionFilter')?.value || 'all';
-      let data = window.FEE_RECORDS || [];
-      if (statusFilter !== 'all') {
-        data = data.filter(f => f.status === statusFilter);
-      }
-      if (search.trim()) {
-        const q = search.trim().toLowerCase();
-        data = data.filter(f => {
-          const student = window.STUDENTS.find(s => s.id === f.studentId);
-          if (!student) return false;
-          return student.name.toLowerCase().includes(q) ||
-                 (student.admissionNo && student.admissionNo.toLowerCase().includes(q)) ||
-                 (student.roll && student.roll.toString().includes(q)) ||
-                 (student.mobile && student.mobile.includes(q)) ||
-                 (student.guardian && student.guardian.toLowerCase().includes(q));
-        });
-      }
-      if (classFilter !== 'all') {
-        const classNum = parseInt(classFilter);
-        data = data.filter(f => {
-          const s = window.STUDENTS.find(st => st.id === f.studentId);
-          return s && s.class === classNum;
-        });
-      }
-      if (sectionFilter !== 'all') {
-        data = data.filter(f => {
-          const s = window.STUDENTS.find(st => st.id === f.studentId);
-          return s && s.section === sectionFilter;
-        });
-      }
-      return data;
-    }
-    case 'salary': {
-      const statusFilter = document.getElementById('salaryFilter')?.value || 'all';
-      const search = document.getElementById('salarySearch')?.value || '';
-      let data = window.SALARY_RECORDS || [];
-      if (statusFilter !== 'all') {
-        data = data.filter(s => s.status === statusFilter);
-      }
-      if (search.trim()) {
-        const q = search.trim().toLowerCase();
-        data = data.filter(s => s.employeeName.toLowerCase().includes(q));
-      }
-      return data;
-    }
-    default:
-      return [];
+  const statusFilter = document.getElementById('feeStatusFilter')?.value || 'all';
+  const search = document.getElementById('feeUniversalSearch')?.value || '';
+  const classFilter = document.getElementById('feeClassFilter')?.value || 'all';
+  let data = window.FEE_RECORDS || [];
+  if (statusFilter !== 'all') {
+    data = data.filter(f => f.status === statusFilter);
   }
+  if (search.trim()) {
+    const q = search.trim().toLowerCase();
+    data = data.filter(f => {
+      const student = window.STUDENTS.find(s => s.id === f.studentId);
+      if (!student) return false;
+      return student.name.toLowerCase().includes(q) ||
+             (student.admissionNo && student.admissionNo.toLowerCase().includes(q)) ||
+             (student.roll && student.roll.toString().includes(q)) ||
+             (student.mobile && student.mobile.includes(q)) ||
+             (student.guardian && student.guardian.toLowerCase().includes(q));
+    });
+  }
+  if (classFilter !== 'all') {
+    const classNum = parseInt(classFilter);
+    data = data.filter(f => {
+      const s = window.STUDENTS.find(st => st.id === f.studentId);
+      return s && s.class === classNum;
+    });
+  }
+  return data;
 }
 
 // ============================================================
