@@ -441,6 +441,60 @@
                     <button class="btn btn-secondary" id="exportAnalyticsExcel"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="16" x2="16" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg> Export Excel</button>
                 </div>
             </section>
+                        <!-- ===== ATTENDANCE ===== -->
+            <section class="page-section" id="page-attendance">
+                <div class="attendance-filters" style="display:flex; flex-wrap:wrap; gap:0.75rem; margin-bottom:1rem; align-items:center; background:white; padding:1rem; border-radius:var(--radius); border:1px solid var(--gray-200);">
+                    <div class="filter-group" style="flex:1; min-width:120px;">
+                        <label style="font-size:0.75rem; font-weight:500; color:var(--gray-500); display:block; margin-bottom:0.2rem;">Academic Session</label>
+                        <select id="attendanceSession" style="width:100%; padding:0.4rem 2rem 0.4rem 0.75rem; border:1px solid var(--gray-200); border-radius:var(--radius); font-size:0.85rem;">
+                            <option value="2025-26">2025-26</option>
+                            <option value="2024-25">2024-25</option>
+                        </select>
+                    </div>
+                    <div class="filter-group" style="flex:1; min-width:100px;">
+                        <label style="font-size:0.75rem; font-weight:500; color:var(--gray-500); display:block; margin-bottom:0.2rem;">Class</label>
+                        <select id="attendanceClass" style="width:100%; padding:0.4rem 2rem 0.4rem 0.75rem; border:1px solid var(--gray-200); border-radius:var(--radius); font-size:0.85rem;">
+                            <option value="all">All</option>
+                            <option value="1">Class 1</option><option value="2">Class 2</option>
+                            <option value="3">Class 3</option><option value="4">Class 4</option>
+                            <option value="5">Class 5</option><option value="6">Class 6</option>
+                            <option value="7">Class 7</option><option value="8">Class 8</option>
+                            <option value="9">Class 9</option><option value="10">Class 10</option>
+                        </select>
+                    </div>
+                    <div class="filter-group" style="flex:1; min-width:80px;">
+                        <label style="font-size:0.75rem; font-weight:500; color:var(--gray-500); display:block; margin-bottom:0.2rem;">Section</label>
+                        <select id="attendanceSection" style="width:100%; padding:0.4rem 2rem 0.4rem 0.75rem; border:1px solid var(--gray-200); border-radius:var(--radius); font-size:0.85rem;">
+                            <option value="all">All</option>
+                            <option value="A">A</option><option value="B">B</option>
+                            <option value="C">C</option><option value="NA">NA</option>
+                        </select>
+                    </div>
+                    <div class="filter-group" style="flex:1; min-width:140px;">
+                        <label style="font-size:0.75rem; font-weight:500; color:var(--gray-500); display:block; margin-bottom:0.2rem;">Date</label>
+                        <input type="date" id="attendanceDate" style="width:100%; padding:0.4rem 0.75rem; border:1px solid var(--gray-200); border-radius:var(--radius); font-size:0.85rem;" />
+                    </div>
+                </div>
+
+                <div class="attendance-actions">
+                    <button class="btn btn-primary" onclick="window.markAllPresent()">Mark All Present</button>
+                    <button class="btn btn-secondary" onclick="window.markAllAbsent()">Mark All Absent</button>
+                    <button class="btn btn-secondary" onclick="window.copyPreviousDay()">Copy Previous Day</button>
+                </div>
+
+                <div id="attendanceSummary"></div>
+
+                <div class="table-wrapper">
+                    <table class="data-table attendance-table" id="attendanceTable">
+                        <thead>
+                            <tr><th>#</th><th>Student Name</th><th>Status</th></tr>
+                        </thead>
+                        <tbody id="attendanceTableBody">
+                            <tr><td colspan="3" style="text-align:center; padding:2rem; color:var(--gray-500);">Select class and section to load attendance.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
 
         </div><!-- /page-container -->
     </main>
