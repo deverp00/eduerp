@@ -1,5 +1,5 @@
 // ============================================================
-// REPORTS & ANALYTICS – Charts, KPIs, Filters
+// REPORTS & ANALYTICS – Charts, KPIs, Filters, Export
 // ============================================================
 
 let chartInstances = {};
@@ -39,7 +39,6 @@ function renderAnalytics() {
     `;
   }
 
-  // --- Charts ---
   renderCharts();
 }
 
@@ -86,31 +85,29 @@ function renderCharts() {
     });
   }
 
-  // 2. Fee Collection Trend (Line chart – dummy monthly data)
-  // For a real trend, we'd need payment dates. We'll use dummy data for demo.
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
-  // If we have payments with dates, we can aggregate; otherwise use dummy.
-  // Let's try to extract from payments if available.
-  let monthlyData = months.map(m => 0);
+  // 2. Fee Collection Trend (Line chart – real payment data)
+  let monthlyData = [];
+  let monthLabels = [];
   if (payments.length > 0) {
-    // Simple: group by month name (or month index)
     const now = new Date();
     const currentYear = now.getFullYear();
-    for (let i = 0; i < 6; i++) {
+    // Last 6 months
+    for (let i = 5; i >= 0; i--) {
       const m = now.getMonth() - i;
       const monthName = new Date(currentYear, m).toLocaleString('default', { month: 'short' });
-      // Sum payments for that month (simplified: only if same year)
+      monthLabels.push(monthName);
       const sum = payments
         .filter(p => {
           const d = new Date(p.date);
           return d.getMonth() === m && d.getFullYear() === currentYear;
         })
         .reduce((sum, p) => sum + (p.amount || 0), 0);
-      monthlyData[5 - i] = sum;
+      monthlyData.push(sum);
     }
   } else {
-    // Fallback dummy
-    monthlyData = [5000, 7000, 6000, 9000, 8000, 12000];
+    // No payments – show empty data with a message
+    monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+    monthlyData = [0, 0, 0, 0, 0, 0];
   }
 
   const ctx2 = document.getElementById('chartFeeTrend');
@@ -118,7 +115,7 @@ function renderCharts() {
     chartInstances.feeTrend = new Chart(ctx2, {
       type: 'line',
       data: {
-        labels: months,
+        labels: monthLabels,
         datasets: [{
           label: 'Fee Collected (₹)',
           data: monthlyData,
@@ -131,7 +128,10 @@ function renderCharts() {
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: (ctx) => `₹${ctx.raw.toLocaleString()}` } }
+        },
         scales: { y: { beginAtZero: true } }
       }
     });
@@ -209,15 +209,88 @@ function resetAnalyticsFilters() {
 }
 
 // ============================================================
-// EXPORT FUNCTIONS (Placeholders)
+// EXPORT FUNCTIONS
 // ============================================================
 
 function exportAnalyticsPDF() {
-  window.showToast('PDF export coming soon', 'info');
+  const { jsPDF } = window.jspdf;
+  if (!jsPDF) {
+    window.showToast('jsPDF library not loaded', 'error');
+    return;
+  }
+
+  window.showToast('Generating PDF...', 'info');
+
+  // Capture the analytics page content (without the export buttons)
+  const content = document.querySelector('#page-analytics .analytics-filters')?.parentNode;
+  if (!content) {
+    window.showToast('Analytics content not found', 'error');
+    return;
+  }
+
+  // Use html2canvas to capture the analytics page
+  const container = document.createElement('div');
+  container.style.cssText = 'padding:20px; background:white;';
+  container.appendChild(content.cloneNode(true));
+  document.body.appendChild(container);
+
+  html2canvas(container, {
+    scale: 2,
+    useCORS: true,
+    logging: false
+  }).then(canvas => {
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const imgWidth = 210;
+    const pageHeight = 297;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    let heightLeft = imgHeight;
+    let position = 0;
+
+    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+    heightLeft -= pageHeight;
+
+    while (heightLeft > 0) {
+      position = heightLeft - imgHeight;
+      pdf.addPage();
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+    }
+
+    pdf.save('Analytics_Dashboard.pdf');
+    window.showToast('PDF exported successfully', 'success');
+    document.body.removeChild(container);
+  }).catch(err => {
+    console.error('PDF export error:', err);
+    window.showToast('PDF export failed', 'error');
+    document.body.removeChild(container);
+  });
 }
 
 function exportAnalyticsExcel() {
-  window.showToast('Excel export coming soon', 'info');
+  const XLSX = window.XLSX;
+  if (!XLSX) {
+    window.showToast('XLSX library not loaded', 'error');
+    return;
+  }
+
+  const kpiData = [
+    ['Metric', 'Value'],
+    ['Total Students', window.STUDENTS.length],
+    ['Total Teachers', window.TEACHERS.filter(t => t.role === 'teacher').length],
+    ['Total Staff', window.TEACHERS.filter(t => t.role === 'staff').length],
+    ['Fee Collected', window.FEE_RECORDS.reduce((s, f) => s + (f.paid || 0), 0)],
+    ['Pending Fees', window.FEE_RECORDS.reduce((s, f) => s + (f.pending || 0), 0)],
+    ['Overdue Records', window.FEE_RECORDS.filter(f => f.status === 'overdue').length],
+    ['Salary Paid', window.SALARY_RECORDS.filter(s => s.status === 'paid').reduce((s, rec) => s + (rec.amount || 0), 0)],
+    ['Salary Pending', window.SALARY_RECORDS.filter(s => s.status === 'pending').reduce((s, rec) => s + (rec.amount || 0), 0)],
+  ];
+
+  const ws = XLSX.utils.aoa_to_sheet(kpiData);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Dashboard');
+  XLSX.writeFile(wb, 'Analytics_Dashboard.xlsx');
+  window.showToast('Excel exported successfully', 'success');
 }
 
 // ============================================================
@@ -245,3 +318,5 @@ document.addEventListener('DOMContentLoaded', () => {
 window.renderAnalytics = renderAnalytics;
 window.applyAnalyticsFilters = applyAnalyticsFilters;
 window.resetAnalyticsFilters = resetAnalyticsFilters;
+window.exportAnalyticsPDF = exportAnalyticsPDF;
+window.exportAnalyticsExcel = exportAnalyticsExcel;
