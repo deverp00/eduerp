@@ -8,7 +8,7 @@
 
 const SCHOOL_INFO = {
   name: 'Morning Glory English Academy',
-  address: 'Dikhlem Nepali Subba Gaon, West Karbi Anglong, Assam – 782248',e
+  address: 'Dikhlem Nepali Subba Gaon, West Karbi Anglong, Assam – 782248',
   code: 'MGEA/2025/001',
   phone: '+91 98765 43210',
   email: 'info@mgea.edu.in',
