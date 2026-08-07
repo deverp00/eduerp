@@ -39,14 +39,17 @@ async function renderAttendance() {
         return;
     }
 
-    // Fetch existing attendance for this class/section/date
+    // Fetch all attendance records and store globally
     const attendanceRecords = await getAllData('attendance');
+    window.ATTENDANCE = attendanceRecords; // ← CRITICAL FIX
+
+    // Filter for current class/section/date
     const filtered = attendanceRecords.filter(r => r.class === parseInt(classVal) && r.section === sectionVal && r.date === dateVal);
     const attendanceMap = {};
     filtered.forEach(r => { attendanceMap[r.studentId] = r.status; });
     currentAttendanceData = attendanceMap;
 
-    // Render table
+    // Render table and summary
     renderAttendanceTable(students, attendanceMap);
     renderAttendanceSummary(students, attendanceMap);
 }
@@ -103,7 +106,7 @@ function renderAttendanceTable(students, attendanceMap) {
 }
 
 // ============================================================
-// SAVE ATTENDANCE
+// SAVE ATTENDANCE (with global update)
 // ============================================================
 
 async function saveAttendance(studentId, status) {
@@ -112,9 +115,11 @@ async function saveAttendance(studentId, status) {
     const dateVal = currentDate;
     const session = document.getElementById('attendanceSession')?.value || '2025-26';
 
-    // Check if record exists
-    const all = await getAllData('attendance');
-    const existing = all.find(r => r.class === classVal && r.section === sectionVal && r.date === dateVal && r.studentId === studentId);
+    // Ensure window.ATTENDANCE exists
+    if (!window.ATTENDANCE) window.ATTENDANCE = [];
+
+    // Check if record exists locally first (to avoid full read)
+    let existing = window.ATTENDANCE.find(r => r.class === classVal && r.section === sectionVal && r.date === dateVal && r.studentId === studentId);
 
     const data = {
         class: classVal,
@@ -128,21 +133,18 @@ async function saveAttendance(studentId, status) {
     try {
         if (existing) {
             await updateData('attendance', existing.id, data);
+            // Update global array
+            const idx = window.ATTENDANCE.indexOf(existing);
+            window.ATTENDANCE[idx] = { ...data, id: existing.id };
         } else {
-            await createData('attendance', data);
-        }
-        // Update global attendance data in window for dashboard/analytics
-        if (!window.ATTENDANCE) window.ATTENDANCE = [];
-        const idx = window.ATTENDANCE.findIndex(r => r.class === classVal && r.section === sectionVal && r.date === dateVal && r.studentId === studentId);
-        if (idx !== -1) {
-            window.ATTENDANCE[idx] = { ...data, id: existing ? existing.id : null };
-        } else {
-            window.ATTENDANCE.push({ ...data, id: existing ? existing.id : null });
+            const result = await createData('attendance', data);
+            // Add to global array
+            window.ATTENDANCE.push({ ...data, id: result.id });
         }
     } catch (error) {
         console.error('Error saving attendance:', error);
         window.showToast('Failed to save attendance. Please try again.', 'error');
-        // Revert UI?
+        // Optionally revert UI
     }
 }
 
@@ -173,47 +175,53 @@ function renderAttendanceSummary(students, attendanceMap) {
 }
 
 // ============================================================
-// BULK ACTIONS
+// BULK ACTIONS (with loading state)
 // ============================================================
 
 async function markAllPresent() {
+    const btn = document.querySelector('.attendance-actions button:first-child');
+    if (btn) { btn.disabled = true; btn.textContent = 'Processing...'; }
     for (const s of currentStudents) {
         currentAttendanceData[s.id] = 'present';
         await saveAttendance(s.id, 'present');
     }
     renderAttendanceTable(currentStudents, currentAttendanceData);
     renderAttendanceSummary(currentStudents, currentAttendanceData);
+    if (btn) { btn.disabled = false; btn.textContent = 'Mark All Present'; }
 }
 
 async function markAllAbsent() {
+    const btn = document.querySelector('.attendance-actions button:nth-child(2)');
+    if (btn) { btn.disabled = true; btn.textContent = 'Processing...'; }
     for (const s of currentStudents) {
         currentAttendanceData[s.id] = 'absent';
         await saveAttendance(s.id, 'absent');
     }
     renderAttendanceTable(currentStudents, currentAttendanceData);
     renderAttendanceSummary(currentStudents, currentAttendanceData);
+    if (btn) { btn.disabled = false; btn.textContent = 'Mark All Absent'; }
 }
 
 async function copyPreviousDay() {
+    const btn = document.querySelector('.attendance-actions button:nth-child(3)');
+    if (btn) { btn.disabled = true; btn.textContent = 'Processing...'; }
     const classVal = parseInt(currentClass);
     const sectionVal = currentSection;
     const dateVal = currentDate;
-    // Calculate yesterday
     const today = new Date(dateVal);
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
     const yesterdayStr = yesterday.toISOString().split('T')[0];
 
-    // Fetch attendance for yesterday
-    const all = await getAllData('attendance');
-    const yesterdayRecords = all.filter(r => r.class === classVal && r.section === sectionVal && r.date === yesterdayStr);
+    // Use global window.ATTENDANCE to avoid extra read
+    const yesterdayRecords = (window.ATTENDANCE || []).filter(r => r.class === classVal && r.section === sectionVal && r.date === yesterdayStr);
 
     if (yesterdayRecords.length === 0) {
         window.showToast('No attendance found for previous day.', 'info');
+        if (btn) { btn.disabled = false; btn.textContent = 'Copy Previous Day'; }
         return;
     }
 
-    // Apply to today
     for (const s of currentStudents) {
         const prev = yesterdayRecords.find(r => r.studentId === s.id);
         const status = prev ? prev.status : 'present';
@@ -223,6 +231,7 @@ async function copyPreviousDay() {
     renderAttendanceTable(currentStudents, currentAttendanceData);
     renderAttendanceSummary(currentStudents, currentAttendanceData);
     window.showToast('Previous day attendance copied.', 'success');
+    if (btn) { btn.disabled = false; btn.textContent = 'Copy Previous Day'; }
 }
 
 // ============================================================
@@ -231,8 +240,13 @@ async function copyPreviousDay() {
 
 async function getTodayAttendancePercent() {
     const today = new Date().toISOString().split('T')[0];
-    const all = await getAllData('attendance');
-    const todayRecords = all.filter(r => r.date === today);
+    // Use global window.ATTENDANCE if available, else fetch
+    let allRecords = window.ATTENDANCE;
+    if (!allRecords || allRecords.length === 0) {
+        allRecords = await getAllData('attendance');
+        window.ATTENDANCE = allRecords;
+    }
+    const todayRecords = allRecords.filter(r => r.date === today);
     if (todayRecords.length === 0) return 0;
     const present = todayRecords.filter(r => r.status === 'present').length;
     return Math.round((present / todayRecords.length) * 100);
@@ -245,12 +259,17 @@ async function getTodayAttendancePercent() {
 async function getAttendanceTrend(days = 7) {
     const trend = [];
     const today = new Date();
+    // Use global window.ATTENDANCE if available, else fetch
+    let allRecords = window.ATTENDANCE;
+    if (!allRecords || allRecords.length === 0) {
+        allRecords = await getAllData('attendance');
+        window.ATTENDANCE = allRecords;
+    }
     for (let i = days - 1; i >= 0; i--) {
         const d = new Date(today);
         d.setDate(d.getDate() - i);
         const dateStr = d.toISOString().split('T')[0];
-        const records = await getAllData('attendance'); // optimize: could query by date
-        const dayRecords = records.filter(r => r.date === dateStr);
+        const dayRecords = allRecords.filter(r => r.date === dateStr);
         const total = dayRecords.length;
         const present = dayRecords.filter(r => r.status === 'present').length;
         const percent = total ? Math.round((present / total) * 100) : 0;
@@ -288,11 +307,5 @@ document.addEventListener('DOMContentLoaded', () => {
     if (sectionSelect) sectionSelect.addEventListener('change', renderAttendance);
     if (dateSelect) dateSelect.addEventListener('change', renderAttendance);
 
-    // Initial load after data is ready
-    // We'll call it from app.js or after loadAllData
+    // Initial load will be triggered from app.js navigation
 });
-
-// Also expose a function to load attendance when page is navigated to
-window.initAttendance = function() {
-    renderAttendance();
-};
