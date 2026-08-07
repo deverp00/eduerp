@@ -15,7 +15,6 @@ function renderFees(statusFilter = 'all', search = '', studentId = null, classFi
 
   let list = fees;
 
-  // Apply filters
   if (statusFilter !== 'all') {
     list = list.filter(f => f.status === statusFilter);
   }
@@ -101,7 +100,6 @@ function renderFees(statusFilter = 'all', search = '', studentId = null, classFi
     document.querySelectorAll('.dropdown-content').forEach(el => el.style.display = 'none');
   });
 
-  // Update analytics
   renderFeeAnalytics();
 }
 
@@ -309,7 +307,6 @@ async function processFeePayment(studentId) {
     return;
   }
 
-  // Create fee record
   const newFee = {
     studentId: studentId,
     feeType: 'Payment',
@@ -321,7 +318,6 @@ async function processFeePayment(studentId) {
   const feeResult = await createData('feeRecords', newFee);
   window.FEE_RECORDS.push(feeResult);
 
-  // Create payment history
   const receiptNo = `RCP-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
   const payment = {
     studentId: studentId,
@@ -432,7 +428,7 @@ async function processBulkCollection() {
 }
 
 // ============================================================
-// INIT FEE MODULE
+// INIT FEE MODULE – Auto‑apply filters
 // ============================================================
 
 function initFeeModule() {
@@ -462,7 +458,7 @@ function initFeeModule() {
 }
 
 // ============================================================
-// ADD FEE (simple entry)
+// ADD FEE
 // ============================================================
 
 function showAddFeeModal() {
@@ -514,7 +510,6 @@ function showAddFeeModal() {
     window.closeModal();
   });
 
-  // Conditional logic for Others
   setTimeout(() => {
     const feeType = document.getElementById('addFeeType');
     const customGroup = document.getElementById('addCustomFeeGroup');
@@ -596,7 +591,6 @@ async function editFee(id) {
     window.closeModal();
   });
 
-  // Conditional logic for Others
   setTimeout(() => {
     const feeType = document.getElementById('editFeeType');
     const customGroup = document.getElementById('editCustomFeeGroup');
@@ -623,15 +617,6 @@ async function deleteFee(id) {
 }
 
 // ============================================================
-// RECEIPT FUNCTIONS (placeholders)
-// ============================================================
-
-function viewReceipt(id) { window.showToast('Receipt view coming soon', 'info'); }
-function reprintReceipt(id) { window.showToast('Reprint coming soon', 'info'); }
-function downloadReceiptPDF(id) { window.showToast('PDF download coming soon', 'info'); }
-function printLastReceipt(id) { window.showToast('Print last receipt coming soon', 'info'); }
-
-// ============================================================
 // EXPOSE GLOBALLY
 // ============================================================
 
@@ -646,7 +631,3 @@ window.processFeePayment = processFeePayment;
 window.showPaymentHistory = showPaymentHistory;
 window.openBulkCollectModal = openBulkCollectModal;
 window.processBulkCollection = processBulkCollection;
-window.viewReceipt = viewReceipt;
-window.reprintReceipt = reprintReceipt;
-window.downloadReceiptPDF = downloadReceiptPDF;
-window.printLastReceipt = printLastReceipt;
