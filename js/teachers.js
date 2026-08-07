@@ -80,7 +80,6 @@ function renderStaff(filter = 'all', search = '') {
     return;
   }
 
-  // Add Employee ID column
   tbody.innerHTML = list.map((t, idx) => `
     <tr>
       <td>${idx + 1}</td>
@@ -146,7 +145,7 @@ function showAddStaffModal() {
       return;
     }
 
-    const employeeId = getNextEmployeeId(); // Generate unique Employee ID
+    const employeeId = getNextEmployeeId();
 
     const newStaff = { name, role, designation, subDepartment: subject, email, employeeId };
     const result = await createData('teachers', newStaff);
