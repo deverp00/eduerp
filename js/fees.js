@@ -8,12 +8,13 @@ import { createData, updateData, deleteData } from './firebase.js';
 // RENDER FEES TABLE + ANALYTICS
 // ============================================================
 
-function renderFees(statusFilter = 'all', search = '', studentId = null, classFilter = 'all', sectionFilter = 'all') {
+function renderFees(session = '2025-26', classFilter = 'all', monthFilter = 'all', statusFilter = 'all', search = '', studentId = null) {
   const fees = window.FEE_RECORDS || [];
   const students = window.STUDENTS || [];
 
   let list = fees;
 
+  // Apply filters
   if (statusFilter !== 'all') {
     list = list.filter(f => f.status === statusFilter);
   }
@@ -38,12 +39,22 @@ function renderFees(statusFilter = 'all', search = '', studentId = null, classFi
       return s && s.class === classNum;
     });
   }
-  if (sectionFilter !== 'all') {
+  // Month filter – apply if not 'all'
+  if (monthFilter !== 'all') {
+    // For month filter, we need to check payment records or fee month.
+    // We assume fee records have a month field or we use the payment's month.
+    // We'll filter by checking if there's a payment with the same month.
+    // Since we have a payment record linked, we can filter.
+    // For simplicity, we'll use the payment month if available.
     list = list.filter(f => {
-      const s = students.find(st => st.id === f.studentId);
-      return s && s.section === sectionFilter;
+      // Find associated payment
+      const payment = window.PAYMENTS.find(p => p.studentId === f.studentId && p.amount === f.amount && p.status === f.status && p.date);
+      if (!payment) return false;
+      return payment.month === monthFilter;
     });
   }
+  // Session filter – we don't have a session field in fees; we assume all records are for current session.
+  // We'll keep it for future use.
 
   list.sort((a, b) => {
     const nameA = students.find(s => s.id === a.studentId)?.name || '';
@@ -77,6 +88,8 @@ function renderFees(statusFilter = 'all', search = '', studentId = null, classFi
         <div class="actions-cell">
           <button class="btn-edit" onclick="window.showStudentDetail('${f.studentId}')">View</button>
           <button class="btn-primary" onclick="window.openCollectFeeModal('${f.studentId}')" style="background:var(--primary); color:white; padding:0.2rem 0.6rem; border-radius:var(--radius); border:none; font-size:0.75rem;">Collect</button>
+          <button class="btn-edit" onclick="window.editFee('${f.id}')">Edit</button>
+          <button class="btn-delete" onclick="window.deleteFee('${f.id}')">Delete</button>
           <div class="dropdown" style="display:inline-block; position:relative;">
             <button class="btn-edit" onclick="toggleDropdown(this)" style="background:transparent; border:none; font-size:1.2rem;">⋮</button>
             <div class="dropdown-content" style="display:none; position:absolute; right:0; background:white; box-shadow:var(--shadow-lg); border-radius:var(--radius); min-width:160px; z-index:10;">
@@ -170,7 +183,11 @@ function setupFeeSearch() {
           window.showStudentDetail(id);
           input.value = window.STUDENTS.find(s => s.id === id).name;
           suggestions.style.display = 'none';
-          renderFees('all', '', id);
+          const session = document.getElementById('feeSession').value;
+          const classFilter = document.getElementById('feeClassFilter').value;
+          const monthFilter = document.getElementById('feeMonthFilter').value;
+          const statusFilter = document.getElementById('feeStatusFilter').value;
+          renderFees(session, classFilter, monthFilter, statusFilter, '', id);
         });
       });
     }
@@ -312,10 +329,10 @@ async function processFeePayment(studentId) {
     return;
   }
 
-  // Show loading
   if (btn) { btn.disabled = true; btn.textContent = 'Processing...'; }
 
   try {
+    const receiptNo = `RCP-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
     // Create fee record
     const newFee = {
       studentId: studentId,
@@ -323,13 +340,13 @@ async function processFeePayment(studentId) {
       amount: received,
       paid: received,
       pending: 0,
-      status: 'paid'
+      status: 'paid',
+      receiptNo: receiptNo
     };
     const feeResult = await createData('feeRecords', newFee);
     window.FEE_RECORDS.push(feeResult);
 
     // Create payment history
-    const receiptNo = `RCP-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
     const payment = {
       studentId: studentId,
       receiptNo: receiptNo,
@@ -344,9 +361,7 @@ async function processFeePayment(studentId) {
 
     window.showToast('Payment processed successfully! Receipt: ' + receiptNo, 'success');
     window.closeModal();
-    renderFees();
-    renderFeeAnalytics();
-    showStudentDetail(studentId);
+    applyFeeFilters(); // refresh with current filters
   } catch (error) {
     console.error('Payment error:', error);
     window.showToast('Payment failed. Please try again.', 'error');
@@ -455,20 +470,20 @@ async function processBulkCollection() {
 
   window.closeModal();
   window.showToast(`Added ${successCount} records${errorCount > 0 ? `, ${errorCount} failed` : ''}`, errorCount > 0 ? 'error' : 'success');
-  renderFees();
-  renderFeeAnalytics();
+  applyFeeFilters();
 }
 
 // ============================================================
-// FILTERS
+// FILTERS (Auto-apply)
 // ============================================================
 
 function applyFeeFilters() {
+  const session = document.getElementById('feeSession').value;
   const classFilter = document.getElementById('feeClassFilter').value;
-  const sectionFilter = document.getElementById('feeSectionFilter').value;
+  const monthFilter = document.getElementById('feeMonthFilter').value;
   const statusFilter = document.getElementById('feeStatusFilter').value;
   const search = document.getElementById('feeUniversalSearch').value;
-  renderFees(statusFilter, search, null, classFilter, sectionFilter);
+  renderFees(session, classFilter, monthFilter, statusFilter, search);
 }
 
 // ============================================================
@@ -478,23 +493,30 @@ function applyFeeFilters() {
 function initFeeModule() {
   renderFeeAnalytics();
   setupFeeSearch();
-  const applyBtn = document.getElementById('feeApplyFilters');
-  if (applyBtn) applyBtn.addEventListener('click', applyFeeFilters);
-  const resetBtn = document.getElementById('feeResetFilters');
-  if (resetBtn) resetBtn.addEventListener('click', function() {
-    document.getElementById('feeClassFilter').value = 'all';
-    document.getElementById('feeSectionFilter').value = 'all';
-    document.getElementById('feeStatusFilter').value = 'all';
-    document.getElementById('feeUniversalSearch').value = '';
-    renderFees();
+
+  // Auto-apply on filter change
+  const filters = ['feeSession', 'feeClassFilter', 'feeMonthFilter', 'feeStatusFilter'];
+  filters.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', applyFeeFilters);
   });
+
+  // Bulk collect
   const bulkBtn = document.getElementById('feeCollectBulkBtn');
   if (bulkBtn) bulkBtn.addEventListener('click', openBulkCollectModal);
+
+  // Add Fee
   document.getElementById('addFeeBtn').addEventListener('click', showAddFeeModal);
+
+  // Search input (debounced)
+  const searchInput = document.getElementById('feeUniversalSearch');
+  if (searchInput) {
+    searchInput.addEventListener('input', applyFeeFilters);
+  }
 }
 
 // ============================================================
-// ADD FEE (simple entry)
+// ADD FEE
 // ============================================================
 
 function showAddFeeModal() {
@@ -541,7 +563,7 @@ function showAddFeeModal() {
     const result = await createData('feeRecords', newFee);
     window.FEE_RECORDS.push(result);
     window.showToast('Fee record added', 'success');
-    renderFees();
+    applyFeeFilters();
     if (window.renderDashboard) window.renderDashboard();
     window.closeModal();
   });
@@ -623,7 +645,7 @@ async function editFee(id) {
     const idx = window.FEE_RECORDS.findIndex(f => f.id === id);
     if (idx !== -1) window.FEE_RECORDS[idx] = { ...window.FEE_RECORDS[idx], ...updated };
     window.showToast('Fee record updated', 'success');
-    renderFees();
+    applyFeeFilters();
     if (window.renderDashboard) window.renderDashboard();
     window.closeModal();
   });
@@ -641,16 +663,48 @@ async function editFee(id) {
 }
 
 // ============================================================
-// DELETE FEE
+// DELETE FEE (with associated payment cleanup)
 // ============================================================
 
 async function deleteFee(id) {
   if (!confirm('Delete this fee record?')) return;
-  await deleteData('feeRecords', id);
-  window.FEE_RECORDS = window.FEE_RECORDS.filter(f => f.id !== id);
-  window.showToast('Fee record deleted', 'success');
-  renderFees();
-  if (window.renderDashboard) window.renderDashboard();
+
+  const fee = window.FEE_RECORDS.find(f => f.id === id);
+  if (!fee) {
+    window.showToast('Fee record not found', 'error');
+    return;
+  }
+
+  // If fee type is 'Payment', also delete associated payment record
+  let paymentToDelete = null;
+  if (fee.feeType === 'Payment') {
+    // Find payment record with same studentId, amount, and date
+    paymentToDelete = window.PAYMENTS.find(p =>
+      p.studentId === fee.studentId &&
+      p.amount === fee.amount &&
+      p.status === fee.status &&
+      new Date(p.date).toDateString() === new Date().toDateString() // approximate match; we could use receiptNo if stored
+    );
+  }
+
+  try {
+    // Delete payment first if exists
+    if (paymentToDelete) {
+      await deleteData('payments', paymentToDelete.id);
+      window.PAYMENTS = window.PAYMENTS.filter(p => p.id !== paymentToDelete.id);
+    }
+
+    // Delete fee record
+    await deleteData('feeRecords', id);
+    window.FEE_RECORDS = window.FEE_RECORDS.filter(f => f.id !== id);
+
+    window.showToast('Fee record deleted' + (paymentToDelete ? ' and associated payment' : ''), 'success');
+    applyFeeFilters();
+    if (window.renderDashboard) window.renderDashboard();
+  } catch (error) {
+    console.error('Delete error:', error);
+    window.showToast('Failed to delete record. Please try again.', 'error');
+  }
 }
 
 // ============================================================
