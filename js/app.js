@@ -82,27 +82,29 @@ function navigateTo(page) {
   const target = document.getElementById(`page-${page}`);
   if (target) target.classList.add('active');
 
-  const titles = {
-    dashboard: 'Dashboard',
-    students: 'Students',
-    teachers: 'Teachers & Staff',
-    fees: 'Fee Management',
-    salary: 'Salary',
-    analytics: 'Reports & Analytics',
-  };
+      const titles = {
+        dashboard: 'Dashboard',
+        students: 'Students',
+        teachers: 'Teachers & Staff',
+        fees: 'Fee Management',
+        salary: 'Salary',
+        analytics: 'Reports & Analytics',
+        attendance: 'Attendance',
+    };
   const title = titles[page] || 'Dashboard';
   pageTitle.textContent = title;
   document.title = `SchoolERP | ${title}`;
 
-  switch (page) {
-    case 'dashboard': if (window.renderDashboard) window.renderDashboard(); break;
-    case 'students': if (window.renderStudents) window.renderStudents(); break;
-    case 'teachers': if (window.renderStaff) window.renderStaff(); break;
-    case 'fees': if (window.renderFees) { window.renderFees(); if (window.initFeeModule) window.initFeeModule(); } break;
-    case 'salary': if (window.renderSalary) window.renderSalary(); break;
-    case 'analytics': if (window.renderAnalytics) window.renderAnalytics(); break;
-    default: break;
-  }
+      switch (page) {
+        case 'dashboard': if (window.renderDashboard) window.renderDashboard(); break;
+        case 'students': if (window.renderStudents) window.renderStudents(); break;
+        case 'teachers': if (window.renderStaff) window.renderStaff(); break;
+        case 'fees': if (window.renderFees) { window.renderFees(); if (window.initFeeModule) window.initFeeModule(); } break;
+        case 'salary': if (window.renderSalary) window.renderSalary(); break;
+        case 'analytics': if (window.renderAnalytics) window.renderAnalytics(); break;
+        case 'attendance': if (window.renderAttendance) window.renderAttendance(); break;
+        default: break;
+    }
 
   if (window.innerWidth < 1024) {
     sidebar.classList.remove('open');
