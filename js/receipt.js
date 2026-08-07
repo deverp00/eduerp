@@ -8,7 +8,7 @@
 
 const SCHOOL_INFO = {
   name: 'Morning Glory English Academy',
-  address: 'Dikhlem Nepali Subba Gaon, West Karbi Anglong, Assam – 782248',
+  address: 'Dikhlem Nepali Subba Gaon, West Karbi Anglong, Assam – 782248',e
   code: 'MGEA/2025/001',
   phone: '+91 98765 43210',
   email: 'info@mgea.edu.in',
@@ -422,12 +422,20 @@ function showSalaryReceipt(id) {
     return;
   }
 
-  const teacher = window.TEACHERS.find(t => t.id === salary.employeeId);
+  // Find teacher using stored employeeId (human-readable ID) or fallback to teacher ID
+  let teacher = null;
+  if (salary.employeeId) {
+    teacher = window.TEACHERS.find(t => t.employeeId === salary.employeeId);
+  }
   if (!teacher) {
-    window.showToast('Teacher not found', 'error');
+    teacher = window.TEACHERS.find(t => t.id === salary.employeeId);
+  }
+  if (!teacher) {
+    window.showToast('Teacher not found for this salary record', 'error');
     return;
   }
 
+  const displayEmployeeId = salary.employeeId || teacher.employeeId || 'N/A';
   const receiptNo = salary.receiptNo || `SAL-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
   const date = salary.paymentDate ? new Date(salary.paymentDate).toLocaleDateString('en-IN', {
     day: '2-digit',
@@ -444,7 +452,6 @@ function showSalaryReceipt(id) {
 
   const receiptHTML = `
     <div class="receipt-wrapper" id="receiptContent">
-      <!-- School Header -->
       <div class="school-header">
         <h2 class="school-name">${SCHOOL_INFO.name}</h2>
         <p class="school-address">${SCHOOL_INFO.address}</p>
@@ -455,36 +462,26 @@ function showSalaryReceipt(id) {
           <strong>Web:</strong> ${SCHOOL_INFO.website}
         </p>
       </div>
-
-      <!-- Receipt Title -->
       <div class="receipt-title">
         <h3>Salary Receipt</h3>
         <span class="receipt-number"># ${receiptNo}</span>
       </div>
-
-      <!-- Receipt Info -->
       <div style="display:flex; justify-content:space-between; font-size:0.85rem; margin-bottom:0.5rem;">
         <span><strong>Date:</strong> ${date}</span>
         <span><strong>Academic Year:</strong> ${academicYear}</span>
       </div>
-
-      <!-- Employee Details -->
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.3rem 1rem; background:#f8fafc; padding:0.5rem 1rem; border-radius:6px; margin-bottom:0.75rem; font-size:0.85rem;">
         <div><strong>Teacher:</strong> ${teacher.name}</div>
+        <div><strong>Employee ID:</strong> ${displayEmployeeId}</div>
         <div><strong>Designation:</strong> ${teacher.designation || 'N/A'}</div>
-        <div><strong>Employee ID:</strong> ${teacher.id}</div>
         <div><strong>Month:</strong> ${salary.month} ${salary.year}</div>
       </div>
-
-      <!-- Salary Details -->
       <div class="receipt-details-grid">
         <div><strong>Amount:</strong> ₹${salary.amount.toLocaleString()}</div>
         <div><strong>Status:</strong> <span class="status-badge status-${salary.status}">${salary.status}</span></div>
         <div><strong>Payment Method:</strong> ${salary.paymentMethod || 'N/A'}</div>
         <div><strong>Amount in Words:</strong> ${amountInWords}</div>
       </div>
-
-      <!-- Footer -->
       <div class="receipt-footer">
         This is a system‑generated salary receipt. No signature required.
         <br />Thank you for your service.
