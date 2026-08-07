@@ -122,12 +122,23 @@ function showAddStudentModal() {
       photo: ''
     };
 
-    const result = await createData('students', newStudent);
-    window.STUDENTS.push(result);
-    window.showToast('Student added successfully', 'success');
-    renderStudents();
-    if (window.renderDashboard) window.renderDashboard();
-    window.closeModal();
+    // Show loading on button
+    const btn = document.querySelector('#modal .btn-primary');
+    if (btn) { btn.disabled = true; btn.textContent = 'Adding...'; }
+
+    try {
+      const result = await createData('students', newStudent);
+      window.STUDENTS.push(result);
+      window.showToast('Student added successfully', 'success');
+      renderStudents();
+      if (window.renderDashboard) window.renderDashboard();
+      window.closeModal();
+    } catch (error) {
+      console.error('Add student error:', error);
+      window.showToast('Failed to add student. Please try again.', 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = 'Add Student'; }
+    }
   });
 }
 
@@ -186,13 +197,23 @@ async function editStudent(id) {
       photo: student.photo || ''
     };
 
-    await updateData('students', id, updated);
-    const idx = window.STUDENTS.findIndex(s => s.id === id);
-    if (idx !== -1) window.STUDENTS[idx] = { ...window.STUDENTS[idx], ...updated };
-    window.showToast('Student updated successfully', 'success');
-    renderStudents();
-    if (window.renderDashboard) window.renderDashboard();
-    window.closeModal();
+    const btn = document.querySelector('#modal .btn-primary');
+    if (btn) { btn.disabled = true; btn.textContent = 'Updating...'; }
+
+    try {
+      await updateData('students', id, updated);
+      const idx = window.STUDENTS.findIndex(s => s.id === id);
+      if (idx !== -1) window.STUDENTS[idx] = { ...window.STUDENTS[idx], ...updated };
+      window.showToast('Student updated successfully', 'success');
+      renderStudents();
+      if (window.renderDashboard) window.renderDashboard();
+      window.closeModal();
+    } catch (error) {
+      console.error('Update student error:', error);
+      window.showToast('Failed to update student. Please try again.', 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = 'Update'; }
+    }
   });
 }
 
@@ -202,11 +223,22 @@ async function editStudent(id) {
 
 async function deleteStudent(id) {
   if (!confirm('Are you sure you want to delete this student?')) return;
-  await deleteData('students', id);
-  window.STUDENTS = window.STUDENTS.filter(s => s.id !== id);
-  window.showToast('Student deleted', 'success');
-  renderStudents();
-  if (window.renderDashboard) window.renderDashboard();
+
+  const btn = document.querySelector(`button[data-id="${id}"][data-action="deleteStudent"]`);
+  if (btn) { btn.disabled = true; btn.textContent = 'Deleting...'; }
+
+  try {
+    await deleteData('students', id);
+    window.STUDENTS = window.STUDENTS.filter(s => s.id !== id);
+    window.showToast('Student deleted', 'success');
+    renderStudents();
+    if (window.renderDashboard) window.renderDashboard();
+  } catch (error) {
+    console.error('Delete student error:', error);
+    window.showToast('Failed to delete student. Please try again.', 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Delete'; }
+  }
 }
 
 // ============================================================
