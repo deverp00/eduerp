@@ -102,37 +102,22 @@ function renderFees(statusFilter = 'all', search = '', studentId = null, classFi
       <td><span class="status-badge status-${f.status}">${f.status}</span></td>
       <td>
         <div class="actions-cell" style="display:flex; align-items:center; gap:0.25rem; flex-wrap:nowrap;">
-          <button class="btn-edit" onclick="window.showStudentDetail('${f.studentId}')" style="white-space:nowrap;">View</button>
+          <button class="btn-edit" onclick="window.showStudentDetail('${f.studentId}')" 
+                  style="white-space:nowrap; ${monthlyPaid ? 'opacity:0.5; cursor:default;' : ''}" 
+                  ${monthlyPaid ? 'disabled' : ''}>
+            View
+          </button>
           <button class="btn-primary" onclick="window.openCollectFeeModal('${f.studentId}')" 
                   style="background:${isCollectActive ? 'var(--primary)' : 'var(--gray-400)'}; color:white; padding:0.2rem 0.6rem; border-radius:var(--radius); border:none; font-size:0.75rem; cursor:${isCollectActive ? 'pointer' : 'default'}; opacity:${isCollectActive ? '1' : '0.6'}; white-space:nowrap;" 
                   ${isCollectActive ? '' : 'disabled'}>
             Collect
           </button>
-          <div class="dropdown" style="display:inline-block; position:relative;">
-            <button class="btn-edit" onclick="toggleDropdown(this)" style="background:transparent; border:none; font-size:1.2rem; padding:0 0.25rem;">⋮</button>
-            <div class="dropdown-content" style="display:none; position:absolute; right:0; background:white; box-shadow:var(--shadow-lg); border-radius:var(--radius); min-width:160px; z-index:10;">
-              <div onclick="window.showPaymentHistory('${f.studentId}')" style="padding:0.5rem 1rem; cursor:pointer;">Payment History</div>
-              <div onclick="window.viewReceipt('${f.id}')" style="padding:0.5rem 1rem; cursor:pointer;">View Receipt</div>
-              <div onclick="window.reprintReceipt('${f.id}')" style="padding:0.5rem 1rem; cursor:pointer;">Reprint Receipt</div>
-              <div onclick="window.downloadReceiptPDF('${f.id}')" style="padding:0.5rem 1rem; cursor:pointer;">Download PDF</div>
-            </div>
-          </div>
+          <button class="btn-receipt" onclick="window.viewReceipt('${f.id}')" style="white-space:nowrap;">Receipt</button>
+          <button class="btn-delete" onclick="window.deleteFeeRecord('${f.id}')" style="white-space:nowrap;">Delete</button>
         </div>
       </td>
     </tr>
   `}).join('');
-
-  document.querySelectorAll('.dropdown .btn-edit').forEach(btn => {
-    btn.addEventListener('click', function(e) {
-      e.stopPropagation();
-      const dropdown = this.closest('.dropdown');
-      const content = dropdown.querySelector('.dropdown-content');
-      content.style.display = content.style.display === 'block' ? 'none' : 'block';
-    });
-  });
-  document.addEventListener('click', function() {
-    document.querySelectorAll('.dropdown-content').forEach(el => el.style.display = 'none');
-  });
 
   renderFeeAnalytics();
 }
@@ -213,7 +198,7 @@ function setupFeeSearch() {
 }
 
 // ============================================================
-// STUDENT DETAIL PANEL (with Close button)
+// STUDENT DETAIL PANEL (with Close button & Bottom Actions)
 // ============================================================
 
 function showStudentDetail(id) {
@@ -231,16 +216,17 @@ function showStudentDetail(id) {
 
   panel.style.display = 'block';
   panel.innerHTML = `
-    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0.5rem;">
-      <h3 style="margin:0;">Student Details</h3>
-      <button id="closeDetailPanel" style="background:transparent; border:none; font-size:1.5rem; cursor:pointer; color:var(--gray-500); padding:0 0.25rem;">×</button>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem; border-bottom:1px solid var(--gray-200); padding-bottom:0.5rem;">
+      <h3 style="margin:0; font-size:1.1rem;">Student Details</h3>
+      <button id="closeDetailPanel" style="background:transparent; border:none; font-size:1.5rem; cursor:pointer; color:var(--gray-500); padding:0 0.25rem; line-height:1;">×</button>
     </div>
+
     <div style="display:flex; gap:1.5rem; flex-wrap:wrap;">
       <div style="display:flex; gap:1rem; align-items:center;">
         <div class="student-avatar">${student.name.charAt(0)}</div>
         <div>
-          <h3 style="margin:0;">${student.name}</h3>
-          <p style="margin:0; color:var(--gray-500); font-size:0.9rem;">${student.admissionNo || 'N/A'} | Roll: ${student.roll}</p>
+          <h4 style="margin:0;">${student.name}</h4>
+          <p style="margin:0; color:var(--gray-500); font-size:0.85rem;">${student.admissionNo || 'N/A'} | Roll: ${student.roll}</p>
         </div>
       </div>
       <div style="flex:1; min-width:200px;">
@@ -254,22 +240,25 @@ function showStudentDetail(id) {
           <div class="label">Current Month Status</div><div class="value"><span class="status-badge ${currentMonthPaid ? 'status-paid' : 'status-pending'}">${currentMonthPaid ? 'Paid' : 'Due'}</span></div>
         </div>
       </div>
-      <div style="display:flex; gap:0.5rem; align-items:center; margin-left:auto;">
-        <button class="btn btn-primary" onclick="window.openCollectFeeModal('${id}')">Collect Fee</button>
-        <button class="btn btn-secondary" onclick="window.showPaymentHistory('${id}')">Payment History</button>
-        <button class="btn btn-secondary" onclick="window.printLastReceipt('${id}')">Print Last Receipt</button>
-      </div>
     </div>
+
     <div style="margin-top:1rem; border-top:1px solid var(--gray-200); padding-top:1rem;">
-      <h4 style="margin:0 0 0.5rem 0;">Fee Structure</h4>
+      <h4 style="margin:0 0 0.5rem 0; font-size:0.95rem;">Fee Structure</h4>
       <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr)); gap:0.5rem;">
         ${feeRecordsForStudent.map(f => `
           <div style="background:var(--gray-50); padding:0.5rem; border-radius:var(--radius);">
-            <div style="font-weight:600; font-size:0.9rem;">${f.feeType}</div>
-            <div style="font-size:0.85rem; color:var(--gray-600);">Amount: ₹${f.amount} | Paid: ₹${f.paid} | Pending: ₹${f.pending}</div>
+            <div style="font-weight:600; font-size:0.85rem;">${f.feeType}</div>
+            <div style="font-size:0.8rem; color:var(--gray-600);">Amount: ₹${f.amount} | Paid: ₹${f.paid} | Pending: ₹${f.pending}</div>
           </div>
         `).join('')}
       </div>
+    </div>
+
+    <!-- Bottom Action Area -->
+    <div style="margin-top:1.25rem; padding-top:0.75rem; border-top:1px solid var(--gray-200); display:flex; gap:0.75rem; justify-content:flex-end; flex-wrap:wrap;">
+      <button class="btn btn-primary" onclick="window.openCollectFeeModal('${id}')">Collect Fee</button>
+      <button class="btn btn-secondary" onclick="window.showPaymentHistory('${id}')">Payment History</button>
+      <button class="btn btn-secondary" onclick="window.printLastReceipt('${id}')">Print Last Receipt</button>
     </div>
   `;
 
@@ -292,10 +281,8 @@ function openCollectFeeModal(studentId) {
   const currentMonth = getCurrentMonth();
   const currentYear = getCurrentYear();
 
-  // Build the modal body with clean structure
   const modalBody = `
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; margin-bottom:0.5rem;">
-      <!-- Left column: inputs -->
       <div>
         <div class="form-group"><label>Student</label><input type="text" value="${student.name}" disabled style="width:100%; padding:0.5rem; border:1px solid var(--gray-200); border-radius:var(--radius); background:var(--gray-50);" /></div>
         <div class="form-group"><label>Total Fee</label><input type="number" id="calcTotalFee" value="${totalFee}" disabled style="width:100%; padding:0.5rem; border:1px solid var(--gray-200); border-radius:var(--radius); background:var(--gray-50);" /></div>
@@ -306,7 +293,6 @@ function openCollectFeeModal(studentId) {
         <div class="form-group"><label>Amount Received (₹)</label><input type="number" id="calcAmountReceived" value="${monthlyAmount}" oninput="window.updateFeeCalculator()" style="width:100%; padding:0.5rem; border:1px solid var(--gray-200); border-radius:var(--radius);" /></div>
       </div>
 
-      <!-- Right column: payment method + summary -->
       <div>
         <div class="form-group"><label>Payment Method</label>
           <select id="calcPaymentMethod" style="width:100%; padding:0.5rem; border:1px solid var(--gray-200); border-radius:var(--radius);">
@@ -332,14 +318,11 @@ function openCollectFeeModal(studentId) {
     </div>
   `;
 
-  // Use the modal footer for the actions (Process Payment and Cancel)
-  // The confirm button will be "Process Payment", cancel remains "Cancel"
   window.openModal(
     'Collect Monthly Fee',
     modalBody,
     'Process Payment',
     async function() {
-      // This callback runs when "Process Payment" is clicked
       await processFeePayment(studentId);
     }
   );
@@ -357,7 +340,6 @@ async function processFeePayment(studentId) {
     return;
   }
 
-  // Create fee record
   const newFee = {
     studentId: studentId,
     feeType: 'Monthly Fee',
@@ -369,7 +351,6 @@ async function processFeePayment(studentId) {
   const feeResult = await createData('feeRecords', newFee);
   window.FEE_RECORDS.push(feeResult);
 
-  // Create payment history with month & year
   const receiptNo = `RCP-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
   const payment = {
     studentId: studentId,
@@ -389,6 +370,25 @@ async function processFeePayment(studentId) {
   renderFees();
   renderFeeAnalytics();
   showStudentDetail(studentId);
+}
+
+// ============================================================
+// DELETE FEE RECORD – Real Working Delete
+// ============================================================
+
+async function deleteFeeRecord(id) {
+  if (!confirm('Are you sure you want to delete this fee record? This action cannot be undone.')) return;
+
+  try {
+    await deleteData('feeRecords', id);
+    window.FEE_RECORDS = window.FEE_RECORDS.filter(f => f.id !== id);
+    window.showToast('Fee record deleted successfully', 'success');
+    renderFees();
+    if (window.renderDashboard) window.renderDashboard();
+  } catch (error) {
+    console.error('Delete error:', error);
+    window.showToast('Error deleting fee record', 'error');
+  }
 }
 
 // ============================================================
@@ -654,19 +654,6 @@ async function editFee(id) {
 }
 
 // ============================================================
-// DELETE FEE
-// ============================================================
-
-async function deleteFee(id) {
-  if (!confirm('Delete this fee record?')) return;
-  await deleteData('feeRecords', id);
-  window.FEE_RECORDS = window.FEE_RECORDS.filter(f => f.id !== id);
-  window.showToast('Fee record deleted', 'success');
-  renderFees();
-  if (window.renderDashboard) window.renderDashboard();
-}
-
-// ============================================================
 // RECEIPT FUNCTIONS (placeholders – kept for compatibility)
 // ============================================================
 
@@ -684,6 +671,7 @@ window.initFeeModule = initFeeModule;
 window.showAddFeeModal = showAddFeeModal;
 window.editFee = editFee;
 window.deleteFee = deleteFee;
+window.deleteFeeRecord = deleteFeeRecord;
 window.showStudentDetail = showStudentDetail;
 window.openCollectFeeModal = openCollectFeeModal;
 window.processFeePayment = processFeePayment;
