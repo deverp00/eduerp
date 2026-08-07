@@ -3,7 +3,8 @@
 // ============================================================
 
 import { createData, updateData, deleteData } from './firebase.js';
-import { showReceipt } from './receipt.js';  // Import receipt function
+// Import receipt functions from receipt.js
+import { showReceipt, downloadReceiptPDF } from './receipt.js';
 
 // ============================================================
 // HELPERS – Monthly Fee Logic
@@ -430,10 +431,6 @@ function showPaymentHistory(studentId) {
 }
 
 // ============================================================
-// REMOVED: Bulk Collect functions and button reference
-// ============================================================
-
-// ============================================================
 // INIT FEE MODULE – Auto‑apply filters (no Bulk Collect)
 // ============================================================
 
@@ -453,7 +450,7 @@ function initFeeModule() {
     }
   });
 
-  // Bulk Collect button removed – no event binding.
+  // Bulk Collect removed – no event binding.
 
   const addBtn = document.getElementById('addFeeBtn');
   if (addBtn) addBtn.addEventListener('click', showAddFeeModal);
@@ -606,42 +603,6 @@ async function editFee(id) {
 }
 
 // ============================================================
-// RECEIPT FUNCTIONS – Now using real receipt from receipt.js
-// ============================================================
-
-// These functions now call the imported showReceipt
-function viewReceipt(id) {
-  showReceipt(id);  // from receipt.js
-}
-
-function reprintReceipt(id) {
-  showReceipt(id);
-  // Optionally trigger print after a short delay
-  setTimeout(() => window.print(), 500);
-}
-
-function downloadReceiptPDF(id) {
-  // This will be handled by receipt.js download function
-  // We'll call the global download function from receipt.js if available
-  if (window.downloadReceiptPDF) {
-    window.downloadReceiptPDF(id);
-  } else {
-    window.showToast('PDF download coming soon', 'info');
-  }
-}
-
-function printLastReceipt(studentId) {
-  const payments = window.PAYMENTS.filter(p => p.studentId === studentId);
-  if (payments.length === 0) {
-    window.showToast('No payment history found', 'info');
-    return;
-  }
-  const lastPayment = payments[payments.length - 1];
-  showReceipt(lastPayment.id);
-  setTimeout(() => window.print(), 500);
-}
-
-// ============================================================
 // EXPOSE GLOBALLY
 // ============================================================
 
@@ -655,14 +616,25 @@ window.showStudentDetail = showStudentDetail;
 window.openCollectFeeModal = openCollectFeeModal;
 window.processFeePayment = processFeePayment;
 window.showPaymentHistory = showPaymentHistory;
-window.viewReceipt = viewReceipt;
-window.reprintReceipt = reprintReceipt;
-window.downloadReceiptPDF = downloadReceiptPDF;
 window.printLastReceipt = printLastReceipt;
+window.updateFeeCalculator = updateFeeCalculator;
 
-// Calculator updater (used inside the modal)
-window.updateFeeCalculator = function() {
-  const totalFee = parseFloat(document.getElementById('calcTotalFee').value) || 0;
+// ============================================================
+// RECEIPT WRAPPER FUNCTIONS – call imported functions
+// ============================================================
+
+function printLastReceipt(studentId) {
+  const payments = window.PAYMENTS.filter(p => p.studentId === studentId);
+  if (payments.length === 0) {
+    window.showToast('No payment history found', 'info');
+    return;
+  }
+  const lastPayment = payments[payments.length - 1];
+  showReceipt(lastPayment.id);
+  setTimeout(() => window.print(), 500);
+}
+
+function updateFeeCalculator() {
   const prevBalance = parseFloat(document.getElementById('calcPrevBalance').value) || 0;
   const discount = parseFloat(document.getElementById('calcDiscount').value) || 0;
   const lateFine = parseFloat(document.getElementById('calcLateFine').value) || 0;
@@ -673,4 +645,4 @@ window.updateFeeCalculator = function() {
   document.getElementById('calcDisplayFine').textContent = lateFine;
   document.getElementById('calcDisplayReceived').textContent = received;
   document.getElementById('calcDisplayRemaining').textContent = remaining.toFixed(2);
-};
+}
