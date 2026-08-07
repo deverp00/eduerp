@@ -3,7 +3,6 @@
 // ============================================================
 
 import { createData, updateData, deleteData } from './firebase.js';
-// Import receipt functions from receipt.js
 import { showReceipt, downloadReceiptPDF } from './receipt.js';
 
 // ============================================================
@@ -38,6 +37,7 @@ function getCurrentYear() {
 // ============================================================
 
 function renderFees(statusFilter = 'all', search = '', studentId = null, classFilter = 'all') {
+  console.log('renderFees called');
   const fees = window.FEE_RECORDS || [];
   const students = window.STUDENTS || [];
 
@@ -78,7 +78,7 @@ function renderFees(statusFilter = 'all', search = '', studentId = null, classFi
   if (!tbody) return;
 
   if (list.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:var(--gray-500); padding:2rem;">No fee records found.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:var(--gray-500); padding:2rem;">No fee records found. Click "Add Fee" to create one.</td></tr>`;
     return;
   }
 
@@ -270,7 +270,7 @@ function showStudentDetail(id) {
 }
 
 // ============================================================
-// COLLECT FEE MODAL – Restructured, no duplicate Cancel
+// COLLECT FEE MODAL
 // ============================================================
 
 function openCollectFeeModal(studentId) {
@@ -435,6 +435,7 @@ function showPaymentHistory(studentId) {
 // ============================================================
 
 function initFeeModule() {
+  console.log('initFeeModule called');
   renderFeeAnalytics();
   setupFeeSearch();
 
@@ -450,10 +451,14 @@ function initFeeModule() {
     }
   });
 
-  // Bulk Collect removed – no event binding.
-
+  // Attach Add Fee button listener
   const addBtn = document.getElementById('addFeeBtn');
-  if (addBtn) addBtn.addEventListener('click', showAddFeeModal);
+  if (addBtn) {
+    addBtn.addEventListener('click', showAddFeeModal);
+    console.log('Add Fee button listener attached');
+  } else {
+    console.error('Add Fee button not found');
+  }
 }
 
 // ============================================================
@@ -461,7 +466,13 @@ function initFeeModule() {
 // ============================================================
 
 function showAddFeeModal() {
+  console.log('showAddFeeModal called');
   const students = window.STUDENTS || [];
+  if (students.length === 0) {
+    window.showToast('No students found. Please add a student first.', 'error');
+    return;
+  }
+
   const studentOptions = students.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
   const feeTypeOptions = ['Admission Fee', 'Monthly Fee', 'Annual Fee', 'Examination Fee', 'Others']
     .map(opt => `<option value="${opt}">${opt}</option>`).join('');
@@ -603,24 +614,7 @@ async function editFee(id) {
 }
 
 // ============================================================
-// EXPOSE GLOBALLY
-// ============================================================
-
-window.renderFees = renderFees;
-window.initFeeModule = initFeeModule;
-window.showAddFeeModal = showAddFeeModal;
-window.editFee = editFee;
-window.deleteFee = deleteFee;
-window.deleteFeeRecord = deleteFeeRecord;
-window.showStudentDetail = showStudentDetail;
-window.openCollectFeeModal = openCollectFeeModal;
-window.processFeePayment = processFeePayment;
-window.showPaymentHistory = showPaymentHistory;
-window.printLastReceipt = printLastReceipt;
-window.updateFeeCalculator = updateFeeCalculator;
-
-// ============================================================
-// RECEIPT WRAPPER FUNCTIONS – call imported functions
+// PRINT LAST RECEIPT & CALCULATOR UPDATER
 // ============================================================
 
 function printLastReceipt(studentId) {
@@ -646,3 +640,44 @@ function updateFeeCalculator() {
   document.getElementById('calcDisplayReceived').textContent = received;
   document.getElementById('calcDisplayRemaining').textContent = remaining.toFixed(2);
 }
+
+// ============================================================
+// EXPOSE GLOBALLY
+// ============================================================
+
+window.renderFees = renderFees;
+window.initFeeModule = initFeeModule;
+window.showAddFeeModal = showAddFeeModal;
+window.editFee = editFee;
+window.deleteFee = deleteFee;
+window.deleteFeeRecord = deleteFeeRecord;
+window.showStudentDetail = showStudentDetail;
+window.openCollectFeeModal = openCollectFeeModal;
+window.processFeePayment = processFeePayment;
+window.showPaymentHistory = showPaymentHistory;
+window.printLastReceipt = printLastReceipt;
+window.updateFeeCalculator = updateFeeCalculator;
+
+// ============================================================
+// AUTO‑INIT: ensure module is loaded when DOM is ready
+// ============================================================
+
+document.addEventListener('DOMContentLoaded', function() {
+  // If the fees page is the current page, render and init.
+  // Also, re‑attach the Add Fee button if not already attached.
+  const feesSection = document.getElementById('page-fees');
+  if (feesSection && feesSection.classList.contains('active')) {
+    renderFees();
+    initFeeModule();
+  }
+
+  // Fallback: if the button is not attached, attach it.
+  const addBtn = document.getElementById('addFeeBtn');
+  if (addBtn) {
+    // Remove any existing listeners to avoid duplicates
+    addBtn.replaceWith(addBtn.cloneNode(true));
+    const newBtn = document.getElementById('addFeeBtn');
+    newBtn.addEventListener('click', showAddFeeModal);
+    console.log('Add Fee button listener attached (fallback)');
+  }
+});
