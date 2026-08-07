@@ -8,7 +8,7 @@ import { createData, updateData, deleteData } from './firebase.js';
 // RENDER FEES TABLE + ANALYTICS
 // ============================================================
 
-function renderFees(statusFilter = 'all', search = '', studentId = null, classFilter = 'all', sectionFilter = 'all') {
+function renderFees(statusFilter = 'all', search = '', studentId = null, classFilter = 'all') {
   const fees = window.FEE_RECORDS || [];
   const students = window.STUDENTS || [];
   const payments = window.PAYMENTS || [];
@@ -38,12 +38,6 @@ function renderFees(statusFilter = 'all', search = '', studentId = null, classFi
     list = list.filter(f => {
       const s = students.find(st => st.id === f.studentId);
       return s && s.class === classNum;
-    });
-  }
-  if (sectionFilter !== 'all') {
-    list = list.filter(f => {
-      const s = students.find(st => st.id === f.studentId);
-      return s && s.section === sectionFilter;
     });
   }
 
@@ -438,37 +432,33 @@ async function processBulkCollection() {
 }
 
 // ============================================================
-// FILTERS
-// ============================================================
-
-function applyFeeFilters() {
-  const classFilter = document.getElementById('feeClassFilter').value;
-  const sectionFilter = document.getElementById('feeSectionFilter').value;
-  const statusFilter = document.getElementById('feeStatusFilter').value;
-  const search = document.getElementById('feeUniversalSearch').value;
-  renderFees(statusFilter, search, null, classFilter, sectionFilter);
-}
-
-// ============================================================
 // INIT FEE MODULE
 // ============================================================
 
 function initFeeModule() {
   renderFeeAnalytics();
   setupFeeSearch();
-  const applyBtn = document.getElementById('feeApplyFilters');
-  if (applyBtn) applyBtn.addEventListener('click', applyFeeFilters);
-  const resetBtn = document.getElementById('feeResetFilters');
-  if (resetBtn) resetBtn.addEventListener('click', function() {
-    document.getElementById('feeClassFilter').value = 'all';
-    document.getElementById('feeSectionFilter').value = 'all';
-    document.getElementById('feeStatusFilter').value = 'all';
-    document.getElementById('feeUniversalSearch').value = '';
-    renderFees();
+
+  // Auto‑apply filters on change
+  ['feeSession', 'feeClassFilter', 'feeMonthFilter', 'feeStatusFilter'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('change', () => {
+        const classFilter = document.getElementById('feeClassFilter').value;
+        const statusFilter = document.getElementById('feeStatusFilter').value;
+        const search = document.getElementById('feeUniversalSearch').value;
+        renderFees(statusFilter, search, null, classFilter);
+      });
+    }
   });
+
+  // Bulk collect
   const bulkBtn = document.getElementById('feeCollectBulkBtn');
   if (bulkBtn) bulkBtn.addEventListener('click', openBulkCollectModal);
-  document.getElementById('addFeeBtn').addEventListener('click', showAddFeeModal);
+
+  // Add fee button
+  const addBtn = document.getElementById('addFeeBtn');
+  if (addBtn) addBtn.addEventListener('click', showAddFeeModal);
 }
 
 // ============================================================
@@ -656,7 +646,6 @@ window.processFeePayment = processFeePayment;
 window.showPaymentHistory = showPaymentHistory;
 window.openBulkCollectModal = openBulkCollectModal;
 window.processBulkCollection = processBulkCollection;
-window.applyFeeFilters = applyFeeFilters;
 window.viewReceipt = viewReceipt;
 window.reprintReceipt = reprintReceipt;
 window.downloadReceiptPDF = downloadReceiptPDF;
