@@ -39,22 +39,15 @@ function renderFees(session = '2025-26', classFilter = 'all', monthFilter = 'all
       return s && s.class === classNum;
     });
   }
-  // Month filter – apply if not 'all'
+  // Month filter – if not 'all', filter by associated payment month
   if (monthFilter !== 'all') {
-    // For month filter, we need to check payment records or fee month.
-    // We assume fee records have a month field or we use the payment's month.
-    // We'll filter by checking if there's a payment with the same month.
-    // Since we have a payment record linked, we can filter.
-    // For simplicity, we'll use the payment month if available.
     list = list.filter(f => {
-      // Find associated payment
       const payment = window.PAYMENTS.find(p => p.studentId === f.studentId && p.amount === f.amount && p.status === f.status && p.date);
       if (!payment) return false;
       return payment.month === monthFilter;
     });
   }
-  // Session filter – we don't have a session field in fees; we assume all records are for current session.
-  // We'll keep it for future use.
+  // Session filter – placeholder (no session field in fee records yet)
 
   list.sort((a, b) => {
     const nameA = students.find(s => s.id === a.studentId)?.name || '';
@@ -86,36 +79,12 @@ function renderFees(session = '2025-26', classFilter = 'all', monthFilter = 'all
       <td><span class="status-badge status-${f.status}">${f.status}</span></td>
       <td>
         <div class="actions-cell">
-          <button class="btn-edit" onclick="window.showStudentDetail('${f.studentId}')">View</button>
-          <button class="btn-primary" onclick="window.openCollectFeeModal('${f.studentId}')" style="background:var(--primary); color:white; padding:0.2rem 0.6rem; border-radius:var(--radius); border:none; font-size:0.75rem;">Collect</button>
-          <button class="btn-edit" onclick="window.editFee('${f.id}')">Edit</button>
+          <button class="btn-receipt" onclick="window.showReceipt('${f.id}')">Receipt</button>
           <button class="btn-delete" onclick="window.deleteFee('${f.id}')">Delete</button>
-          <div class="dropdown" style="display:inline-block; position:relative;">
-            <button class="btn-edit" onclick="toggleDropdown(this)" style="background:transparent; border:none; font-size:1.2rem;">⋮</button>
-            <div class="dropdown-content" style="display:none; position:absolute; right:0; background:white; box-shadow:var(--shadow-lg); border-radius:var(--radius); min-width:160px; z-index:10;">
-              <div onclick="window.showPaymentHistory('${f.studentId}')" style="padding:0.5rem 1rem; cursor:pointer;">Payment History</div>
-              <div onclick="window.viewReceipt('${f.id}')" style="padding:0.5rem 1rem; cursor:pointer;">View Receipt</div>
-              <div onclick="window.reprintReceipt('${f.id}')" style="padding:0.5rem 1rem; cursor:pointer;">Reprint Receipt</div>
-              <div onclick="window.downloadReceiptPDF('${f.id}')" style="padding:0.5rem 1rem; cursor:pointer;">Download PDF</div>
-            </div>
-          </div>
         </div>
       </td>
     </tr>
   `}).join('');
-
-  // Dropdown toggle
-  document.querySelectorAll('.dropdown .btn-edit').forEach(btn => {
-    btn.addEventListener('click', function(e) {
-      e.stopPropagation();
-      const dropdown = this.closest('.dropdown');
-      const content = dropdown.querySelector('.dropdown-content');
-      content.style.display = content.style.display === 'block' ? 'none' : 'block';
-    });
-  });
-  document.addEventListener('click', function() {
-    document.querySelectorAll('.dropdown-content').forEach(el => el.style.display = 'none');
-  });
 
   renderFeeAnalytics();
 }
@@ -183,11 +152,7 @@ function setupFeeSearch() {
           window.showStudentDetail(id);
           input.value = window.STUDENTS.find(s => s.id === id).name;
           suggestions.style.display = 'none';
-          const session = document.getElementById('feeSession').value;
-          const classFilter = document.getElementById('feeClassFilter').value;
-          const monthFilter = document.getElementById('feeMonthFilter').value;
-          const statusFilter = document.getElementById('feeStatusFilter').value;
-          renderFees(session, classFilter, monthFilter, statusFilter, '', id);
+          applyFeeFilters();
         });
       });
     }
@@ -361,7 +326,7 @@ async function processFeePayment(studentId) {
 
     window.showToast('Payment processed successfully! Receipt: ' + receiptNo, 'success');
     window.closeModal();
-    applyFeeFilters(); // refresh with current filters
+    applyFeeFilters();
   } catch (error) {
     console.error('Payment error:', error);
     window.showToast('Payment failed. Please try again.', 'error');
@@ -508,7 +473,7 @@ function initFeeModule() {
   // Add Fee
   document.getElementById('addFeeBtn').addEventListener('click', showAddFeeModal);
 
-  // Search input (debounced)
+  // Search input
   const searchInput = document.getElementById('feeUniversalSearch');
   if (searchInput) {
     searchInput.addEventListener('input', applyFeeFilters);
@@ -582,87 +547,6 @@ function showAddFeeModal() {
 }
 
 // ============================================================
-// EDIT FEE
-// ============================================================
-
-async function editFee(id) {
-  const fee = window.FEE_RECORDS.find(f => f.id === id);
-  if (!fee) return;
-  const students = window.STUDENTS || [];
-  const studentOptions = students.map(s => `<option value="${s.id}" ${s.id === fee.studentId ? 'selected' : ''}>${s.name}</option>`).join('');
-
-  const predefined = ['Admission Fee', 'Monthly Fee', 'Annual Fee', 'Examination Fee', 'Others'];
-  let selectedType = fee.feeType;
-  let showOthers = false;
-  let customValue = '';
-  if (predefined.includes(selectedType)) {
-    if (selectedType === 'Others') showOthers = true;
-  } else {
-    selectedType = 'Others';
-    customValue = fee.feeType;
-    showOthers = true;
-  }
-  const feeTypeOptions = predefined.map(opt => `<option value="${opt}" ${opt === selectedType ? 'selected' : ''}>${opt}</option>`).join('');
-
-  const modalHTML = `
-    <div class="form-group"><label>Student</label><select id="editFeeStudent">${studentOptions}</select></div>
-    <div class="form-group"><label>Fee Type</label><select id="editFeeType">${feeTypeOptions}</select></div>
-    <div class="form-group" id="editCustomFeeGroup" style="${showOthers ? 'display:block;' : 'display:none;'}">
-      <label>Custom Fee Description</label><input type="text" id="editCustomFee" value="${customValue}" />
-    </div>
-    <div class="form-group"><label>Amount (₹)</label><input type="number" id="editFeeAmount" value="${fee.amount}" /></div>
-    <div class="form-group"><label>Paid (₹)</label><input type="number" id="editFeePaid" value="${fee.paid}" /></div>
-    <div class="form-group"><label>Pending (₹)</label><input type="number" id="editFeePending" value="${fee.pending}" /></div>
-    <div class="form-group"><label>Status</label>
-      <select id="editFeeStatus">
-        <option value="paid" ${fee.status === 'paid' ? 'selected' : ''}>Paid</option>
-        <option value="pending" ${fee.status === 'pending' ? 'selected' : ''}>Pending</option>
-        <option value="overdue" ${fee.status === 'overdue' ? 'selected' : ''}>Overdue</option>
-      </select>
-    </div>
-  `;
-
-  window.openModal('Edit Fee Record', modalHTML, 'Update', async () => {
-    const studentId = document.getElementById('editFeeStudent').value;
-    const feeTypeSelect = document.getElementById('editFeeType');
-    const feeType = feeTypeSelect.value;
-    let finalFeeType = feeType;
-    if (feeType === 'Others') {
-      const custom = document.getElementById('editCustomFee').value.trim();
-      if (!custom) { window.showToast('Please enter a custom fee description', 'error'); return; }
-      finalFeeType = custom;
-    }
-    const amount = parseFloat(document.getElementById('editFeeAmount').value);
-    const paid = parseFloat(document.getElementById('editFeePaid').value);
-    const pending = parseFloat(document.getElementById('editFeePending').value);
-    const status = document.getElementById('editFeeStatus').value;
-    if (isNaN(amount) || isNaN(paid) || isNaN(pending) || amount < 0 || paid < 0 || pending < 0) {
-      window.showToast('Please fill all numeric fields correctly', 'error');
-      return;
-    }
-    const updated = { studentId, feeType: finalFeeType, amount, paid, pending, status };
-    await updateData('feeRecords', id, updated);
-    const idx = window.FEE_RECORDS.findIndex(f => f.id === id);
-    if (idx !== -1) window.FEE_RECORDS[idx] = { ...window.FEE_RECORDS[idx], ...updated };
-    window.showToast('Fee record updated', 'success');
-    applyFeeFilters();
-    if (window.renderDashboard) window.renderDashboard();
-    window.closeModal();
-  });
-
-  setTimeout(() => {
-    const feeType = document.getElementById('editFeeType');
-    const customGroup = document.getElementById('editCustomFeeGroup');
-    if (feeType && customGroup) {
-      feeType.addEventListener('change', function() {
-        customGroup.style.display = this.value === 'Others' ? 'block' : 'none';
-      });
-      customGroup.style.display = feeType.value === 'Others' ? 'block' : 'none';
-    }
-  }, 50);
-}
-
-// ============================================================
 // DELETE FEE (with associated payment cleanup)
 // ============================================================
 
@@ -678,23 +562,19 @@ async function deleteFee(id) {
   // If fee type is 'Payment', also delete associated payment record
   let paymentToDelete = null;
   if (fee.feeType === 'Payment') {
-    // Find payment record with same studentId, amount, and date
     paymentToDelete = window.PAYMENTS.find(p =>
       p.studentId === fee.studentId &&
       p.amount === fee.amount &&
       p.status === fee.status &&
-      new Date(p.date).toDateString() === new Date().toDateString() // approximate match; we could use receiptNo if stored
+      new Date(p.date).toDateString() === new Date().toDateString()
     );
   }
 
   try {
-    // Delete payment first if exists
     if (paymentToDelete) {
       await deleteData('payments', paymentToDelete.id);
       window.PAYMENTS = window.PAYMENTS.filter(p => p.id !== paymentToDelete.id);
     }
-
-    // Delete fee record
     await deleteData('feeRecords', id);
     window.FEE_RECORDS = window.FEE_RECORDS.filter(f => f.id !== id);
 
@@ -714,7 +594,6 @@ async function deleteFee(id) {
 window.renderFees = renderFees;
 window.initFeeModule = initFeeModule;
 window.showAddFeeModal = showAddFeeModal;
-window.editFee = editFee;
 window.deleteFee = deleteFee;
 window.showStudentDetail = showStudentDetail;
 window.openCollectFeeModal = openCollectFeeModal;
