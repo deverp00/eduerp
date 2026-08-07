@@ -1,21 +1,21 @@
 // ============================================================
-// FEE MANAGEMENT – Full Upgraded Module (Firebase)
+// FEE MANAGEMENT – Complete Corrected Version
 // ============================================================
 
 import { createData, updateData, deleteData } from './firebase.js';
 import { showReceipt, downloadReceiptPDF } from './receipt.js';
 
 // ============================================================
-// HELPERS – Monthly Fee Logic
+// HELPERS
 // ============================================================
 
 function getMonthlyFeeAmount(studentId) {
-  const fee = window.FEE_RECORDS.find(f => f.studentId === studentId && f.feeType === 'Monthly Fee');
+  const fee = window.FEE_RECORDS?.find(f => f.studentId === studentId && f.feeType === 'Monthly Fee');
   return fee ? fee.amount : 0;
 }
 
 function isMonthPaid(studentId, month, year) {
-  const payments = window.PAYMENTS.filter(p => p.studentId === studentId);
+  const payments = window.PAYMENTS?.filter(p => p.studentId === studentId) || [];
   const monthlyAmount = getMonthlyFeeAmount(studentId);
   if (monthlyAmount === 0) return false;
   const totalPaid = payments
@@ -33,16 +33,20 @@ function getCurrentYear() {
 }
 
 // ============================================================
-// RENDER FEES TABLE + ANALYTICS
+// RENDER FEES TABLE
 // ============================================================
 
 function renderFees(statusFilter = 'all', search = '', studentId = null, classFilter = 'all') {
-  console.log('renderFees called');
+  console.log('🔄 renderFees called', { statusFilter, search, studentId, classFilter });
+
   const fees = window.FEE_RECORDS || [];
   const students = window.STUDENTS || [];
 
+  console.log('📊 Fee records:', fees.length, 'Students:', students.length);
+
   let list = fees;
 
+  // Apply filters
   if (statusFilter !== 'all') {
     list = list.filter(f => f.status === statusFilter);
   }
@@ -68,6 +72,7 @@ function renderFees(statusFilter = 'all', search = '', studentId = null, classFi
     });
   }
 
+  // Sort by student name
   list.sort((a, b) => {
     const nameA = students.find(s => s.id === a.studentId)?.name || '';
     const nameB = students.find(s => s.id === b.studentId)?.name || '';
@@ -75,10 +80,14 @@ function renderFees(statusFilter = 'all', search = '', studentId = null, classFi
   });
 
   const tbody = document.getElementById('feeTableBody');
-  if (!tbody) return;
+  if (!tbody) {
+    console.error('❌ feeTableBody not found');
+    return;
+  }
 
   if (list.length === 0) {
     tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:var(--gray-500); padding:2rem;">No fee records found. Click "Add Fee" to create one.</td></tr>`;
+    renderFeeAnalytics();
     return;
   }
 
@@ -122,6 +131,7 @@ function renderFees(statusFilter = 'all', search = '', studentId = null, classFi
   `}).join('');
 
   renderFeeAnalytics();
+  console.log('✅ Fee table rendered with', list.length, 'records');
 }
 
 // ============================================================
@@ -200,7 +210,7 @@ function setupFeeSearch() {
 }
 
 // ============================================================
-// STUDENT DETAIL PANEL (with Close button & Bottom Actions)
+// STUDENT DETAIL PANEL
 // ============================================================
 
 function showStudentDetail(id) {
@@ -256,7 +266,6 @@ function showStudentDetail(id) {
       </div>
     </div>
 
-    <!-- Bottom Action Area -->
     <div style="margin-top:1.25rem; padding-top:0.75rem; border-top:1px solid var(--gray-200); display:flex; gap:0.75rem; justify-content:flex-end; flex-wrap:wrap;">
       <button class="btn btn-primary" onclick="window.openCollectFeeModal('${id}')">Collect Fee</button>
       <button class="btn btn-secondary" onclick="window.showPaymentHistory('${id}')">Payment History</button>
@@ -375,7 +384,7 @@ async function processFeePayment(studentId) {
 }
 
 // ============================================================
-// DELETE FEE RECORD – Real Working Delete
+// DELETE FEE RECORD
 // ============================================================
 
 async function deleteFeeRecord(id) {
@@ -431,42 +440,48 @@ function showPaymentHistory(studentId) {
 }
 
 // ============================================================
-// INIT FEE MODULE – Auto‑apply filters (no Bulk Collect)
+// PRINT LAST RECEIPT
 // ============================================================
 
-function initFeeModule() {
-  console.log('initFeeModule called');
-  renderFeeAnalytics();
-  setupFeeSearch();
-
-  ['feeSession', 'feeClassFilter', 'feeMonthFilter', 'feeStatusFilter'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) {
-      el.addEventListener('change', () => {
-        const classFilter = document.getElementById('feeClassFilter').value;
-        const statusFilter = document.getElementById('feeStatusFilter').value;
-        const search = document.getElementById('feeUniversalSearch').value;
-        renderFees(statusFilter, search, null, classFilter);
-      });
-    }
-  });
-
-  // Attach Add Fee button listener
-  const addBtn = document.getElementById('addFeeBtn');
-  if (addBtn) {
-    addBtn.addEventListener('click', showAddFeeModal);
-    console.log('Add Fee button listener attached');
-  } else {
-    console.error('Add Fee button not found');
+function printLastReceipt(studentId) {
+  const payments = window.PAYMENTS.filter(p => p.studentId === studentId);
+  if (payments.length === 0) {
+    window.showToast('No payment history found', 'info');
+    return;
   }
+  const lastPayment = payments[payments.length - 1];
+  showReceipt(lastPayment.id);
+  setTimeout(() => window.print(), 500);
 }
 
 // ============================================================
-// ADD FEE
+// CALCULATOR UPDATER
+// ============================================================
+
+function updateFeeCalculator() {
+  const prevBalance = parseFloat(document.getElementById('calcPrevBalance').value) || 0;
+  const discount = parseFloat(document.getElementById('calcDiscount').value) || 0;
+  const lateFine = parseFloat(document.getElementById('calcLateFine').value) || 0;
+  const received = parseFloat(document.getElementById('calcAmountReceived').value) || 0;
+  const remaining = prevBalance + lateFine - discount - received;
+  const remainingEl = document.getElementById('calcRemaining');
+  if (remainingEl) remainingEl.value = remaining.toFixed(2);
+  const displayDiscount = document.getElementById('calcDisplayDiscount');
+  if (displayDiscount) displayDiscount.textContent = discount;
+  const displayFine = document.getElementById('calcDisplayFine');
+  if (displayFine) displayFine.textContent = lateFine;
+  const displayReceived = document.getElementById('calcDisplayReceived');
+  if (displayReceived) displayReceived.textContent = received;
+  const displayRemaining = document.getElementById('calcDisplayRemaining');
+  if (displayRemaining) displayRemaining.textContent = remaining.toFixed(2);
+}
+
+// ============================================================
+// ADD FEE MODAL
 // ============================================================
 
 function showAddFeeModal() {
-  console.log('showAddFeeModal called');
+  console.log('➕ showAddFeeModal called');
   const students = window.STUDENTS || [];
   if (students.length === 0) {
     window.showToast('No students found. Please add a student first.', 'error');
@@ -614,31 +629,45 @@ async function editFee(id) {
 }
 
 // ============================================================
-// PRINT LAST RECEIPT & CALCULATOR UPDATER
+// INIT FEE MODULE
 // ============================================================
 
-function printLastReceipt(studentId) {
-  const payments = window.PAYMENTS.filter(p => p.studentId === studentId);
-  if (payments.length === 0) {
-    window.showToast('No payment history found', 'info');
-    return;
-  }
-  const lastPayment = payments[payments.length - 1];
-  showReceipt(lastPayment.id);
-  setTimeout(() => window.print(), 500);
-}
+function initFeeModule() {
+  console.log('🚀 initFeeModule called');
 
-function updateFeeCalculator() {
-  const prevBalance = parseFloat(document.getElementById('calcPrevBalance').value) || 0;
-  const discount = parseFloat(document.getElementById('calcDiscount').value) || 0;
-  const lateFine = parseFloat(document.getElementById('calcLateFine').value) || 0;
-  const received = parseFloat(document.getElementById('calcAmountReceived').value) || 0;
-  const remaining = prevBalance + lateFine - discount - received;
-  document.getElementById('calcRemaining').value = remaining.toFixed(2);
-  document.getElementById('calcDisplayDiscount').textContent = discount;
-  document.getElementById('calcDisplayFine').textContent = lateFine;
-  document.getElementById('calcDisplayReceived').textContent = received;
-  document.getElementById('calcDisplayRemaining').textContent = remaining.toFixed(2);
+  // Render analytics
+  renderFeeAnalytics();
+
+  // Setup search
+  setupFeeSearch();
+
+  // Auto‑apply filters on change
+  ['feeSession', 'feeClassFilter', 'feeMonthFilter', 'feeStatusFilter'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('change', () => {
+        const classFilter = document.getElementById('feeClassFilter').value;
+        const statusFilter = document.getElementById('feeStatusFilter').value;
+        const search = document.getElementById('feeUniversalSearch').value;
+        renderFees(statusFilter, search, null, classFilter);
+      });
+    }
+  });
+
+  // Attach Add Fee button
+  const addBtn = document.getElementById('addFeeBtn');
+  if (addBtn) {
+    // Remove any existing listeners by cloning
+    const newBtn = addBtn.cloneNode(true);
+    addBtn.parentNode.replaceChild(newBtn, addBtn);
+    newBtn.addEventListener('click', showAddFeeModal);
+    console.log('✅ Add Fee button attached');
+  } else {
+    console.error('❌ Add Fee button not found');
+  }
+
+  // Render fees initially
+  renderFees();
 }
 
 // ============================================================
@@ -657,27 +686,3 @@ window.processFeePayment = processFeePayment;
 window.showPaymentHistory = showPaymentHistory;
 window.printLastReceipt = printLastReceipt;
 window.updateFeeCalculator = updateFeeCalculator;
-
-// ============================================================
-// AUTO‑INIT: ensure module is loaded when DOM is ready
-// ============================================================
-
-document.addEventListener('DOMContentLoaded', function() {
-  // If the fees page is the current page, render and init.
-  // Also, re‑attach the Add Fee button if not already attached.
-  const feesSection = document.getElementById('page-fees');
-  if (feesSection && feesSection.classList.contains('active')) {
-    renderFees();
-    initFeeModule();
-  }
-
-  // Fallback: if the button is not attached, attach it.
-  const addBtn = document.getElementById('addFeeBtn');
-  if (addBtn) {
-    // Remove any existing listeners to avoid duplicates
-    addBtn.replaceWith(addBtn.cloneNode(true));
-    const newBtn = document.getElementById('addFeeBtn');
-    newBtn.addEventListener('click', showAddFeeModal);
-    console.log('Add Fee button listener attached (fallback)');
-  }
-});
