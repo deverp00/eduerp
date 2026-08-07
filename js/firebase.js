@@ -4,7 +4,7 @@
 
 import { initializeApp } from "firebase/app";
 import { getDatabase, ref, set, push, update, remove, get } from "firebase/database";
-import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, sendPasswordResetEmail, signOut } from "firebase/auth";
 
 // Your Firebase config
 const firebaseConfig = {
@@ -48,6 +48,23 @@ function getCurrentUser() {
       resolve(user);
     });
   });
+}
+
+/**
+ * Log out the current user.
+ * @returns {Promise<void>}
+ */
+function logoutAdmin() {
+  return signOut(auth);
+}
+
+/**
+ * Send password reset email.
+ * @param {string} email - User email.
+ * @returns {Promise<void>}
+ */
+function sendPasswordReset(email) {
+  return sendPasswordResetEmail(auth, email);
 }
 
 // ============================================================
@@ -124,6 +141,8 @@ export {
   auth,
   loginAdmin,
   getCurrentUser,
+  logoutAdmin,
+  sendPasswordReset,
   getAllData,
   createData,
   updateData,
