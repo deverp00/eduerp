@@ -4,7 +4,10 @@
 
 import { getCurrentUser, getAllData } from './firebase.js';
 
-// DOM refs
+// ============================================================
+// DOM REFS
+// ============================================================
+
 const sidebar = document.getElementById('sidebar');
 const overlay = document.getElementById('overlay');
 const menuToggle = document.getElementById('menuToggle');
@@ -21,6 +24,7 @@ const toastContainer = document.getElementById('toastContainer');
 const loadingOverlay = document.getElementById('loadingOverlay');
 
 let currentPage = 'dashboard';
+let modalCallback = null;
 
 // ============================================================
 // TOAST & LOADING
@@ -50,13 +54,13 @@ function openModal(title, bodyHTML, confirmText = 'Confirm', callback) {
   modalTitle.textContent = title;
   modalBody.innerHTML = bodyHTML;
   modalConfirm.textContent = confirmText;
-  window.modalCallback = callback; // <-- store callback globally
+  modalCallback = callback;
   modalOverlay.classList.add('active');
 }
 
 function closeModal() {
   modalOverlay.classList.remove('active');
-  window.modalCallback = null;
+  modalCallback = null;
 }
 
 // ============================================================
@@ -85,11 +89,15 @@ function navigateTo(page) {
   };
   pageTitle.textContent = titles[page] || 'Dashboard';
 
+  // Call the module's render function (globally exposed)
   switch (page) {
     case 'dashboard': if (window.renderDashboard) window.renderDashboard(); break;
     case 'students': if (window.renderStudents) window.renderStudents(); break;
     case 'teachers': if (window.renderStaff) window.renderStaff(); break;
-    case 'fees': if (window.renderFees) { window.renderFees(); if (window.initFeeModule) window.initFeeModule(); } break;
+    case 'fees': 
+      if (window.renderFees) window.renderFees();
+      if (window.initFeeModule) window.initFeeModule();
+      break;
     case 'salary': if (window.renderSalary) window.renderSalary(); break;
     case 'analytics': if (window.renderAnalytics) window.renderAnalytics(); break;
     default: break;
@@ -138,7 +146,7 @@ modalOverlay.addEventListener('click', (e) => {
   if (e.target === modalOverlay) closeModal();
 });
 modalConfirm.addEventListener('click', () => {
-  if (window.modalCallback) window.modalCallback();
+  if (modalCallback) modalCallback();
 });
 
 // ============================================================
@@ -179,11 +187,13 @@ async function loadAllData() {
 }
 
 // ============================================================
-// INIT
+// INIT – Check Auth & Load Data, then Navigate
 // ============================================================
 
 document.addEventListener('DOMContentLoaded', async () => {
   showLoading(true);
+
+  // Check if user is authenticated (optional – for security rules)
   const user = await getCurrentUser();
   if (!user) {
     console.warn('No authenticated user. Firebase rules may block reads/writes.');
@@ -191,13 +201,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   } else {
     console.log('Authenticated as:', user.email);
   }
+
   await loadAllData();
   showLoading(false);
   navigateTo('dashboard');
 });
 
 // ============================================================
-// EXPOSE GLOBALLY
+// EXPOSE GLOBAL FUNCTIONS FOR OTHER MODULES
 // ============================================================
 
 window.showToast = showToast;
@@ -206,4 +217,3 @@ window.openModal = openModal;
 window.closeModal = closeModal;
 window.navigateTo = navigateTo;
 window.loadAllData = loadAllData;
-window.modalCallback = null; // initialise
