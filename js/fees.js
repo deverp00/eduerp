@@ -1,52 +1,19 @@
 // ============================================================
-// FEE MANAGEMENT – Complete Corrected Version
+// FEE MANAGEMENT – Full Upgraded Module (Firebase)
 // ============================================================
 
 import { createData, updateData, deleteData } from './firebase.js';
-import { showReceipt, downloadReceiptPDF } from './receipt.js';
 
 // ============================================================
-// HELPERS
+// RENDER FEES TABLE + ANALYTICS
 // ============================================================
 
-function getMonthlyFeeAmount(studentId) {
-  const fee = window.FEE_RECORDS?.find(f => f.studentId === studentId && f.feeType === 'Monthly Fee');
-  return fee ? fee.amount : 0;
-}
-
-function isMonthPaid(studentId, month, year) {
-  const payments = window.PAYMENTS?.filter(p => p.studentId === studentId) || [];
-  const monthlyAmount = getMonthlyFeeAmount(studentId);
-  if (monthlyAmount === 0) return false;
-  const totalPaid = payments
-    .filter(p => p.month === month && p.year === year)
-    .reduce((sum, p) => sum + (p.amount || 0), 0);
-  return totalPaid >= monthlyAmount;
-}
-
-function getCurrentMonth() {
-  return new Date().toLocaleString('default', { month: 'long' });
-}
-
-function getCurrentYear() {
-  return new Date().getFullYear();
-}
-
-// ============================================================
-// RENDER FEES TABLE
-// ============================================================
-
-function renderFees(statusFilter = 'all', search = '', studentId = null, classFilter = 'all') {
-  console.log('🔄 renderFees called', { statusFilter, search, studentId, classFilter });
-
+function renderFees(statusFilter = 'all', search = '', studentId = null, classFilter = 'all', sectionFilter = 'all') {
   const fees = window.FEE_RECORDS || [];
   const students = window.STUDENTS || [];
 
-  console.log('📊 Fee records:', fees.length, 'Students:', students.length);
-
   let list = fees;
 
-  // Apply filters
   if (statusFilter !== 'all') {
     list = list.filter(f => f.status === statusFilter);
   }
@@ -71,8 +38,13 @@ function renderFees(statusFilter = 'all', search = '', studentId = null, classFi
       return s && s.class === classNum;
     });
   }
+  if (sectionFilter !== 'all') {
+    list = list.filter(f => {
+      const s = students.find(st => st.id === f.studentId);
+      return s && s.section === sectionFilter;
+    });
+  }
 
-  // Sort by student name
   list.sort((a, b) => {
     const nameA = students.find(s => s.id === a.studentId)?.name || '';
     const nameB = students.find(s => s.id === b.studentId)?.name || '';
@@ -80,27 +52,17 @@ function renderFees(statusFilter = 'all', search = '', studentId = null, classFi
   });
 
   const tbody = document.getElementById('feeTableBody');
-  if (!tbody) {
-    console.error('❌ feeTableBody not found');
-    return;
-  }
+  if (!tbody) return;
 
   if (list.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:var(--gray-500); padding:2rem;">No fee records found. Click "Add Fee" to create one.</td></tr>`;
-    renderFeeAnalytics();
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:var(--gray-500); padding:2rem;">No fee records found.</td></tr>`;
     return;
   }
-
-  const currentMonth = getCurrentMonth();
-  const currentYear = getCurrentYear();
 
   tbody.innerHTML = list.map((f, idx) => {
     const student = students.find(s => s.id === f.studentId);
     const studentName = student ? student.name : 'Unknown';
     const studentClass = student ? `${student.class}${student.section}` : 'N/A';
-    const monthlyPaid = student ? isMonthPaid(student.id, currentMonth, currentYear) : false;
-    const isCollectActive = !monthlyPaid && getMonthlyFeeAmount(student?.id) > 0;
-
     return `
     <tr>
       <td>${idx + 1}</td>
@@ -112,26 +74,37 @@ function renderFees(statusFilter = 'all', search = '', studentId = null, classFi
       <td>₹${(f.pending || 0).toLocaleString()}</td>
       <td><span class="status-badge status-${f.status}">${f.status}</span></td>
       <td>
-        <div class="actions-cell" style="display:flex; align-items:center; gap:0.25rem; flex-wrap:nowrap;">
-          <button class="btn-edit" onclick="window.showStudentDetail('${f.studentId}')" 
-                  style="white-space:nowrap; ${monthlyPaid ? 'opacity:0.5; cursor:default;' : ''}" 
-                  ${monthlyPaid ? 'disabled' : ''}>
-            View
-          </button>
-          <button class="btn-primary" onclick="window.openCollectFeeModal('${f.studentId}')" 
-                  style="background:${isCollectActive ? 'var(--primary)' : 'var(--gray-400)'}; color:white; padding:0.2rem 0.6rem; border-radius:var(--radius); border:none; font-size:0.75rem; cursor:${isCollectActive ? 'pointer' : 'default'}; opacity:${isCollectActive ? '1' : '0.6'}; white-space:nowrap;" 
-                  ${isCollectActive ? '' : 'disabled'}>
-            Collect
-          </button>
-          <button class="btn-receipt" onclick="window.showReceipt('${f.id}')" style="white-space:nowrap;">Receipt</button>
-          <button class="btn-delete" onclick="window.deleteFeeRecord('${f.id}')" style="white-space:nowrap;">Delete</button>
+        <div class="actions-cell">
+          <button class="btn-edit" onclick="window.showStudentDetail('${f.studentId}')">View</button>
+          <button class="btn-primary" onclick="window.openCollectFeeModal('${f.studentId}')" style="background:var(--primary); color:white; padding:0.2rem 0.6rem; border-radius:var(--radius); border:none; font-size:0.75rem;">Collect</button>
+          <div class="dropdown" style="display:inline-block; position:relative;">
+            <button class="btn-edit" onclick="toggleDropdown(this)" style="background:transparent; border:none; font-size:1.2rem;">⋮</button>
+            <div class="dropdown-content" style="display:none; position:absolute; right:0; background:white; box-shadow:var(--shadow-lg); border-radius:var(--radius); min-width:160px; z-index:10;">
+              <div onclick="window.showPaymentHistory('${f.studentId}')" style="padding:0.5rem 1rem; cursor:pointer;">Payment History</div>
+              <div onclick="window.viewReceipt('${f.id}')" style="padding:0.5rem 1rem; cursor:pointer;">View Receipt</div>
+              <div onclick="window.reprintReceipt('${f.id}')" style="padding:0.5rem 1rem; cursor:pointer;">Reprint Receipt</div>
+              <div onclick="window.downloadReceiptPDF('${f.id}')" style="padding:0.5rem 1rem; cursor:pointer;">Download PDF</div>
+            </div>
+          </div>
         </div>
       </td>
     </tr>
   `}).join('');
 
+  // Dropdown toggle
+  document.querySelectorAll('.dropdown .btn-edit').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      const dropdown = this.closest('.dropdown');
+      const content = dropdown.querySelector('.dropdown-content');
+      content.style.display = content.style.display === 'block' ? 'none' : 'block';
+    });
+  });
+  document.addEventListener('click', function() {
+    document.querySelectorAll('.dropdown-content').forEach(el => el.style.display = 'none');
+  });
+
   renderFeeAnalytics();
-  console.log('✅ Fee table rendered with', list.length, 'records');
 }
 
 // ============================================================
@@ -223,22 +196,15 @@ function showStudentDetail(id) {
   const lastPayment = payments.length ? payments[payments.length-1] : null;
   const feeRecordsForStudent = window.FEE_RECORDS.filter(f => f.studentId === id);
   const pendingTotal = feeRecordsForStudent.reduce((sum, f) => sum + (f.pending || 0), 0);
-  const monthlyAmount = getMonthlyFeeAmount(id);
-  const currentMonthPaid = isMonthPaid(id, getCurrentMonth(), getCurrentYear());
 
   panel.style.display = 'block';
   panel.innerHTML = `
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem; border-bottom:1px solid var(--gray-200); padding-bottom:0.5rem;">
-      <h3 style="margin:0; font-size:1.1rem;">Student Details</h3>
-      <button id="closeDetailPanel" style="background:transparent; border:none; font-size:1.5rem; cursor:pointer; color:var(--gray-500); padding:0 0.25rem; line-height:1;">×</button>
-    </div>
-
     <div style="display:flex; gap:1.5rem; flex-wrap:wrap;">
       <div style="display:flex; gap:1rem; align-items:center;">
         <div class="student-avatar">${student.name.charAt(0)}</div>
         <div>
-          <h4 style="margin:0;">${student.name}</h4>
-          <p style="margin:0; color:var(--gray-500); font-size:0.85rem;">${student.admissionNo || 'N/A'} | Roll: ${student.roll}</p>
+          <h3 style="margin:0;">${student.name}</h3>
+          <p style="margin:0; color:var(--gray-500); font-size:0.9rem;">${student.admissionNo || 'N/A'} | Roll: ${student.roll}</p>
         </div>
       </div>
       <div style="flex:1; min-width:200px;">
@@ -248,38 +214,30 @@ function showStudentDetail(id) {
           <div class="label">Total Paid</div><div class="value">₹${totalPaid.toLocaleString()}</div>
           <div class="label">Pending Amount</div><div class="value">₹${pendingTotal.toLocaleString()}</div>
           <div class="label">Last Payment</div><div class="value">${lastPayment ? new Date(lastPayment.date).toLocaleDateString() : 'N/A'}</div>
-          <div class="label">Monthly Fee</div><div class="value">₹${monthlyAmount.toLocaleString()}</div>
-          <div class="label">Current Month Status</div><div class="value"><span class="status-badge ${currentMonthPaid ? 'status-paid' : 'status-pending'}">${currentMonthPaid ? 'Paid' : 'Due'}</span></div>
         </div>
       </div>
+      <div style="display:flex; gap:0.5rem; align-items:center; margin-left:auto;">
+        <button class="btn btn-primary" onclick="window.openCollectFeeModal('${id}')">Collect Fee</button>
+        <button class="btn btn-secondary" onclick="window.showPaymentHistory('${id}')">Payment History</button>
+        <button class="btn btn-secondary" onclick="window.printLastReceipt('${id}')">Print Last Receipt</button>
+      </div>
     </div>
-
     <div style="margin-top:1rem; border-top:1px solid var(--gray-200); padding-top:1rem;">
-      <h4 style="margin:0 0 0.5rem 0; font-size:0.95rem;">Fee Structure</h4>
+      <h4 style="margin:0 0 0.5rem 0;">Fee Structure</h4>
       <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr)); gap:0.5rem;">
         ${feeRecordsForStudent.map(f => `
           <div style="background:var(--gray-50); padding:0.5rem; border-radius:var(--radius);">
-            <div style="font-weight:600; font-size:0.85rem;">${f.feeType}</div>
-            <div style="font-size:0.8rem; color:var(--gray-600);">Amount: ₹${f.amount} | Paid: ₹${f.paid} | Pending: ₹${f.pending}</div>
+            <div style="font-weight:600; font-size:0.9rem;">${f.feeType}</div>
+            <div style="font-size:0.85rem; color:var(--gray-600);">Amount: ₹${f.amount} | Paid: ₹${f.paid} | Pending: ₹${f.pending}</div>
           </div>
         `).join('')}
       </div>
     </div>
-
-    <div style="margin-top:1.25rem; padding-top:0.75rem; border-top:1px solid var(--gray-200); display:flex; gap:0.75rem; justify-content:flex-end; flex-wrap:wrap;">
-      <button class="btn btn-primary" onclick="window.openCollectFeeModal('${id}')">Collect Fee</button>
-      <button class="btn btn-secondary" onclick="window.showPaymentHistory('${id}')">Payment History</button>
-      <button class="btn btn-secondary" onclick="window.printLastReceipt('${id}')">Print Last Receipt</button>
-    </div>
   `;
-
-  document.getElementById('closeDetailPanel').addEventListener('click', function() {
-    panel.style.display = 'none';
-  });
 }
 
 // ============================================================
-// COLLECT FEE MODAL
+// COLLECT FEE (Smart Calculator)
 // ============================================================
 
 function openCollectFeeModal(studentId) {
@@ -288,55 +246,57 @@ function openCollectFeeModal(studentId) {
   const studentFees = window.FEE_RECORDS.filter(f => f.studentId === studentId);
   const totalFee = studentFees.reduce((sum, f) => sum + (f.amount || 0), 0);
   const pending = studentFees.reduce((sum, f) => sum + (f.pending || 0), 0);
-  const monthlyAmount = getMonthlyFeeAmount(studentId);
-  const currentMonth = getCurrentMonth();
-  const currentYear = getCurrentYear();
 
-  const modalBody = `
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; margin-bottom:0.5rem;">
+  const modalHTML = `
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
       <div>
-        <div class="form-group"><label>Student</label><input type="text" value="${student.name}" disabled style="width:100%; padding:0.5rem; border:1px solid var(--gray-200); border-radius:var(--radius); background:var(--gray-50);" /></div>
-        <div class="form-group"><label>Total Fee</label><input type="number" id="calcTotalFee" value="${totalFee}" disabled style="width:100%; padding:0.5rem; border:1px solid var(--gray-200); border-radius:var(--radius); background:var(--gray-50);" /></div>
-        <div class="form-group"><label>Previous Balance</label><input type="number" id="calcPrevBalance" value="${pending}" disabled style="width:100%; padding:0.5rem; border:1px solid var(--gray-200); border-radius:var(--radius); background:var(--gray-50);" /></div>
-        <div class="form-group"><label>Discount (₹)</label><input type="number" id="calcDiscount" value="0" oninput="window.updateFeeCalculator()" style="width:100%; padding:0.5rem; border:1px solid var(--gray-200); border-radius:var(--radius);" /></div>
-        <div class="form-group"><label>Late Fine (₹)</label><input type="number" id="calcLateFine" value="0" oninput="window.updateFeeCalculator()" style="width:100%; padding:0.5rem; border:1px solid var(--gray-200); border-radius:var(--radius);" /></div>
-        <div class="form-group"><label>Month</label><input type="text" value="${currentMonth} ${currentYear}" disabled style="width:100%; padding:0.5rem; border:1px solid var(--gray-200); border-radius:var(--radius); background:var(--gray-50);" /></div>
-        <div class="form-group"><label>Amount Received (₹)</label><input type="number" id="calcAmountReceived" value="${monthlyAmount}" oninput="window.updateFeeCalculator()" style="width:100%; padding:0.5rem; border:1px solid var(--gray-200); border-radius:var(--radius);" /></div>
+        <div class="form-group"><label>Student</label><input type="text" value="${student.name}" disabled /></div>
+        <div class="form-group"><label>Total Fee</label><input type="number" id="calcTotalFee" value="${totalFee}" disabled /></div>
+        <div class="form-group"><label>Previous Balance</label><input type="number" id="calcPrevBalance" value="${pending}" disabled /></div>
+        <div class="form-group"><label>Discount (₹)</label><input type="number" id="calcDiscount" value="0" oninput="window.updateFeeCalculator()" /></div>
+        <div class="form-group"><label>Late Fine (₹)</label><input type="number" id="calcLateFine" value="0" oninput="window.updateFeeCalculator()" /></div>
       </div>
-
       <div>
+        <div class="form-group"><label>Amount Received (₹)</label><input type="number" id="calcAmountReceived" value="${totalFee - pending}" oninput="window.updateFeeCalculator()" /></div>
         <div class="form-group"><label>Payment Method</label>
-          <select id="calcPaymentMethod" style="width:100%; padding:0.5rem; border:1px solid var(--gray-200); border-radius:var(--radius);">
+          <select id="calcPaymentMethod">
             <option value="Cash">Cash</option>
             <option value="Bank Transfer">Bank Transfer</option>
             <option value="Cheque">Cheque</option>
             <option value="Digital Wallet">Digital Wallet</option>
           </select>
         </div>
-        <div class="form-group"><label>Remaining Balance</label><input type="number" id="calcRemaining" value="${pending}" disabled style="width:100%; padding:0.5rem; border:1px solid var(--gray-200); border-radius:var(--radius); background:var(--gray-50);" /></div>
-
-        <div style="background:var(--gray-50); padding:0.75rem; border-radius:var(--radius); margin-top:1rem;">
-          <p style="font-weight:600; margin:0 0 0.5rem 0;">Payment Summary</p>
-          <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.25rem 1rem; font-size:0.9rem;">
-            <span><strong>Monthly Fee:</strong> ₹<span id="calcDisplayTotal">${monthlyAmount}</span></span>
-            <span><strong>Discount:</strong> ₹<span id="calcDisplayDiscount">0</span></span>
-            <span><strong>Late Fine:</strong> ₹<span id="calcDisplayFine">0</span></span>
-            <span><strong>Amount Received:</strong> ₹<span id="calcDisplayReceived">${monthlyAmount}</span></span>
-            <span><strong>Remaining Balance:</strong> ₹<span id="calcDisplayRemaining">${pending}</span></span>
-          </div>
+        <div class="form-group"><label>Remaining Balance</label><input type="number" id="calcRemaining" value="${pending}" disabled /></div>
+        <div style="background:var(--gray-50); padding:0.75rem; border-radius:var(--radius); margin-top:0.5rem;">
+          <p><strong>Total Fee:</strong> <span id="calcDisplayTotal">${totalFee}</span></p>
+          <p><strong>Previous Balance:</strong> <span id="calcDisplayPrev">${pending}</span></p>
+          <p><strong>Discount:</strong> <span id="calcDisplayDiscount">0</span></p>
+          <p><strong>Late Fine:</strong> <span id="calcDisplayFine">0</span></p>
+          <p><strong>Amount Received:</strong> <span id="calcDisplayReceived">${totalFee - pending}</span></p>
+          <p><strong>Remaining:</strong> <span id="calcDisplayRemaining">${pending}</span></p>
         </div>
       </div>
     </div>
+    <div style="margin-top:1rem;">
+      <button class="btn btn-primary" id="processPaymentBtn" onclick="window.processFeePayment('${studentId}')">Process Payment</button>
+    </div>
   `;
-
-  window.openModal(
-    'Collect Monthly Fee',
-    modalBody,
-    'Process Payment',
-    async function() {
-      await processFeePayment(studentId);
-    }
-  );
+  window.openModal('Collect Fee', modalHTML, 'Cancel', () => { window.closeModal(); });
+  window.updateFeeCalculator = function() {
+    const totalFee = parseFloat(document.getElementById('calcTotalFee').value) || 0;
+    const prevBalance = parseFloat(document.getElementById('calcPrevBalance').value) || 0;
+    const discount = parseFloat(document.getElementById('calcDiscount').value) || 0;
+    const lateFine = parseFloat(document.getElementById('calcLateFine').value) || 0;
+    const received = parseFloat(document.getElementById('calcAmountReceived').value) || 0;
+    const remaining = prevBalance + lateFine - discount - received;
+    document.getElementById('calcRemaining').value = remaining.toFixed(2);
+    document.getElementById('calcDisplayTotal').textContent = totalFee;
+    document.getElementById('calcDisplayPrev').textContent = prevBalance;
+    document.getElementById('calcDisplayDiscount').textContent = discount;
+    document.getElementById('calcDisplayFine').textContent = lateFine;
+    document.getElementById('calcDisplayReceived').textContent = received;
+    document.getElementById('calcDisplayRemaining').textContent = remaining.toFixed(2);
+  };
 }
 
 // ============================================================
@@ -346,59 +306,52 @@ function openCollectFeeModal(studentId) {
 async function processFeePayment(studentId) {
   const received = parseFloat(document.getElementById('calcAmountReceived').value) || 0;
   const method = document.getElementById('calcPaymentMethod').value;
+  const btn = document.getElementById('processPaymentBtn');
   if (received <= 0) {
     window.showToast('Please enter a valid amount', 'error');
     return;
   }
 
-  const newFee = {
-    studentId: studentId,
-    feeType: 'Monthly Fee',
-    amount: received,
-    paid: received,
-    pending: 0,
-    status: 'paid'
-  };
-  const feeResult = await createData('feeRecords', newFee);
-  window.FEE_RECORDS.push(feeResult);
-
-  const receiptNo = `RCP-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
-  const payment = {
-    studentId: studentId,
-    receiptNo: receiptNo,
-    date: new Date().toISOString().split('T')[0],
-    month: getCurrentMonth(),
-    year: getCurrentYear(),
-    amount: received,
-    method: method,
-    status: 'paid'
-  };
-  const payResult = await createData('payments', payment);
-  window.PAYMENTS.push(payResult);
-
-  window.showToast('Payment processed successfully! Receipt: ' + receiptNo, 'success');
-  window.closeModal();
-  renderFees();
-  renderFeeAnalytics();
-  showStudentDetail(studentId);
-}
-
-// ============================================================
-// DELETE FEE RECORD
-// ============================================================
-
-async function deleteFeeRecord(id) {
-  if (!confirm('Are you sure you want to delete this fee record? This action cannot be undone.')) return;
+  // Show loading
+  if (btn) { btn.disabled = true; btn.textContent = 'Processing...'; }
 
   try {
-    await deleteData('feeRecords', id);
-    window.FEE_RECORDS = window.FEE_RECORDS.filter(f => f.id !== id);
-    window.showToast('Fee record deleted successfully', 'success');
+    // Create fee record
+    const newFee = {
+      studentId: studentId,
+      feeType: 'Payment',
+      amount: received,
+      paid: received,
+      pending: 0,
+      status: 'paid'
+    };
+    const feeResult = await createData('feeRecords', newFee);
+    window.FEE_RECORDS.push(feeResult);
+
+    // Create payment history
+    const receiptNo = `RCP-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+    const payment = {
+      studentId: studentId,
+      receiptNo: receiptNo,
+      date: new Date().toISOString().split('T')[0],
+      month: new Date().toLocaleString('default', { month: 'long' }),
+      amount: received,
+      method: method,
+      status: 'paid'
+    };
+    const payResult = await createData('payments', payment);
+    window.PAYMENTS.push(payResult);
+
+    window.showToast('Payment processed successfully! Receipt: ' + receiptNo, 'success');
+    window.closeModal();
     renderFees();
-    if (window.renderDashboard) window.renderDashboard();
+    renderFeeAnalytics();
+    showStudentDetail(studentId);
   } catch (error) {
-    console.error('Delete error:', error);
-    window.showToast('Error deleting fee record', 'error');
+    console.error('Payment error:', error);
+    window.showToast('Payment failed. Please try again.', 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Process Payment'; }
   }
 }
 
@@ -417,12 +370,12 @@ function showPaymentHistory(studentId) {
     <tr>
       <td>${p.receiptNo}</td>
       <td>${new Date(p.date).toLocaleDateString()}</td>
-      <td>${p.month} ${p.year}</td>
+      <td>${p.month}</td>
       <td>₹${(p.amount || 0).toLocaleString()}</td>
       <td>${p.method}</td>
       <td><span class="status-badge status-${p.status}">${p.status}</span></td>
       <td>
-        <button class="btn-edit" onclick="window.showReceipt('${p.id}')">View</button>
+        <button class="btn-edit" onclick="window.viewReceipt('${p.id}')">View</button>
         <button class="btn-receipt" onclick="window.reprintReceipt('${p.id}')">Reprint</button>
         <button class="btn-edit" onclick="window.downloadReceiptPDF('${p.id}')">PDF</button>
       </td>
@@ -432,7 +385,7 @@ function showPaymentHistory(studentId) {
   window.openModal(`Payment History – ${student.name}`, `
     <div style="overflow-x:auto;">
       <table class="data-table">
-        <thead><tr><th>Receipt No</th><th>Date</th><th>Month/Year</th><th>Amount</th><th>Method</th><th>Status</th><th>Actions</th></tr></thead>
+        <thead><tr><th>Receipt No</th><th>Date</th><th>Month</th><th>Amount</th><th>Method</th><th>Status</th><th>Actions</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>
@@ -440,54 +393,112 @@ function showPaymentHistory(studentId) {
 }
 
 // ============================================================
-// PRINT LAST RECEIPT
+// BULK COLLECT
 // ============================================================
 
-function printLastReceipt(studentId) {
-  const payments = window.PAYMENTS.filter(p => p.studentId === studentId);
-  if (payments.length === 0) {
-    window.showToast('No payment history found', 'info');
+function openBulkCollectModal() {
+  window.openModal('Bulk Fee Collection', `
+    <div class="form-group"><label>Class</label>
+      <select id="bulkClass" style="width:100%; padding:0.5rem; border:1px solid var(--gray-200); border-radius:var(--radius);">
+        ${Array.from({length:12}, (_,i) => i+1).map(c => `<option value="${c}">Class ${c}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group"><label>Section</label>
+      <select id="bulkSection" style="width:100%; padding:0.5rem; border:1px solid var(--gray-200); border-radius:var(--radius);">
+        <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="NA">NA</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Fee Type</label><input type="text" id="bulkFeeType" placeholder="e.g., Tuition" style="width:100%; padding:0.5rem; border:1px solid var(--gray-200); border-radius:var(--radius);" /></div>
+    <div class="form-group"><label>Amount (₹)</label><input type="number" id="bulkAmount" placeholder="5000" style="width:100%; padding:0.5rem; border:1px solid var(--gray-200); border-radius:var(--radius);" /></div>
+    <button class="btn btn-primary" id="bulkCollectBtn" onclick="window.processBulkCollection()">Collect for All</button>
+  `, 'Cancel', () => { window.closeModal(); });
+}
+
+async function processBulkCollection() {
+  const classVal = parseInt(document.getElementById('bulkClass').value);
+  const section = document.getElementById('bulkSection').value;
+  const feeType = document.getElementById('bulkFeeType').value.trim();
+  const amount = parseFloat(document.getElementById('bulkAmount').value);
+  const btn = document.getElementById('bulkCollectBtn');
+
+  if (!feeType || isNaN(amount) || amount <= 0) {
+    window.showToast('Please fill all fields correctly', 'error');
     return;
   }
-  const lastPayment = payments[payments.length - 1];
-  showReceipt(lastPayment.id);
-  setTimeout(() => window.print(), 500);
+
+  if (btn) { btn.disabled = true; btn.textContent = 'Processing...'; }
+
+  const students = window.STUDENTS.filter(s => s.class === classVal && s.section === section);
+  let successCount = 0;
+  let errorCount = 0;
+
+  for (const s of students) {
+    try {
+      const newFee = {
+        studentId: s.id,
+        feeType: feeType,
+        amount: amount,
+        paid: 0,
+        pending: amount,
+        status: 'pending'
+      };
+      const result = await createData('feeRecords', newFee);
+      window.FEE_RECORDS.push(result);
+      successCount++;
+    } catch (error) {
+      console.error(`Error adding fee for ${s.name}:`, error);
+      errorCount++;
+    }
+  }
+
+  if (btn) { btn.disabled = false; btn.textContent = 'Collect for All'; }
+
+  window.closeModal();
+  window.showToast(`Added ${successCount} records${errorCount > 0 ? `, ${errorCount} failed` : ''}`, errorCount > 0 ? 'error' : 'success');
+  renderFees();
+  renderFeeAnalytics();
 }
 
 // ============================================================
-// CALCULATOR UPDATER
+// FILTERS
 // ============================================================
 
-function updateFeeCalculator() {
-  const prevBalance = parseFloat(document.getElementById('calcPrevBalance').value) || 0;
-  const discount = parseFloat(document.getElementById('calcDiscount').value) || 0;
-  const lateFine = parseFloat(document.getElementById('calcLateFine').value) || 0;
-  const received = parseFloat(document.getElementById('calcAmountReceived').value) || 0;
-  const remaining = prevBalance + lateFine - discount - received;
-  const remainingEl = document.getElementById('calcRemaining');
-  if (remainingEl) remainingEl.value = remaining.toFixed(2);
-  const displayDiscount = document.getElementById('calcDisplayDiscount');
-  if (displayDiscount) displayDiscount.textContent = discount;
-  const displayFine = document.getElementById('calcDisplayFine');
-  if (displayFine) displayFine.textContent = lateFine;
-  const displayReceived = document.getElementById('calcDisplayReceived');
-  if (displayReceived) displayReceived.textContent = received;
-  const displayRemaining = document.getElementById('calcDisplayRemaining');
-  if (displayRemaining) displayRemaining.textContent = remaining.toFixed(2);
+function applyFeeFilters() {
+  const classFilter = document.getElementById('feeClassFilter').value;
+  const sectionFilter = document.getElementById('feeSectionFilter').value;
+  const statusFilter = document.getElementById('feeStatusFilter').value;
+  const search = document.getElementById('feeUniversalSearch').value;
+  renderFees(statusFilter, search, null, classFilter, sectionFilter);
 }
 
 // ============================================================
-// ADD FEE MODAL
+// INIT FEE MODULE
+// ============================================================
+
+function initFeeModule() {
+  renderFeeAnalytics();
+  setupFeeSearch();
+  const applyBtn = document.getElementById('feeApplyFilters');
+  if (applyBtn) applyBtn.addEventListener('click', applyFeeFilters);
+  const resetBtn = document.getElementById('feeResetFilters');
+  if (resetBtn) resetBtn.addEventListener('click', function() {
+    document.getElementById('feeClassFilter').value = 'all';
+    document.getElementById('feeSectionFilter').value = 'all';
+    document.getElementById('feeStatusFilter').value = 'all';
+    document.getElementById('feeUniversalSearch').value = '';
+    renderFees();
+  });
+  const bulkBtn = document.getElementById('feeCollectBulkBtn');
+  if (bulkBtn) bulkBtn.addEventListener('click', openBulkCollectModal);
+  document.getElementById('addFeeBtn').addEventListener('click', showAddFeeModal);
+}
+
+// ============================================================
+// ADD FEE (simple entry)
 // ============================================================
 
 function showAddFeeModal() {
-  console.log('➕ showAddFeeModal called');
   const students = window.STUDENTS || [];
-  if (students.length === 0) {
-    window.showToast('No students found. Please add a student first.', 'error');
-    return;
-  }
-
   const studentOptions = students.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
   const feeTypeOptions = ['Admission Fee', 'Monthly Fee', 'Annual Fee', 'Examination Fee', 'Others']
     .map(opt => `<option value="${opt}">${opt}</option>`).join('');
@@ -535,6 +546,7 @@ function showAddFeeModal() {
     window.closeModal();
   });
 
+  // Conditional logic for Others
   setTimeout(() => {
     const feeType = document.getElementById('addFeeType');
     const customGroup = document.getElementById('addCustomFeeGroup');
@@ -629,45 +641,16 @@ async function editFee(id) {
 }
 
 // ============================================================
-// INIT FEE MODULE
+// DELETE FEE
 // ============================================================
 
-function initFeeModule() {
-  console.log('🚀 initFeeModule called');
-
-  // Render analytics
-  renderFeeAnalytics();
-
-  // Setup search
-  setupFeeSearch();
-
-  // Auto‑apply filters on change
-  ['feeSession', 'feeClassFilter', 'feeMonthFilter', 'feeStatusFilter'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) {
-      el.addEventListener('change', () => {
-        const classFilter = document.getElementById('feeClassFilter').value;
-        const statusFilter = document.getElementById('feeStatusFilter').value;
-        const search = document.getElementById('feeUniversalSearch').value;
-        renderFees(statusFilter, search, null, classFilter);
-      });
-    }
-  });
-
-  // Attach Add Fee button
-  const addBtn = document.getElementById('addFeeBtn');
-  if (addBtn) {
-    // Remove any existing listeners by cloning
-    const newBtn = addBtn.cloneNode(true);
-    addBtn.parentNode.replaceChild(newBtn, addBtn);
-    newBtn.addEventListener('click', showAddFeeModal);
-    console.log('✅ Add Fee button attached');
-  } else {
-    console.error('❌ Add Fee button not found');
-  }
-
-  // Render fees initially
+async function deleteFee(id) {
+  if (!confirm('Delete this fee record?')) return;
+  await deleteData('feeRecords', id);
+  window.FEE_RECORDS = window.FEE_RECORDS.filter(f => f.id !== id);
+  window.showToast('Fee record deleted', 'success');
   renderFees();
+  if (window.renderDashboard) window.renderDashboard();
 }
 
 // ============================================================
@@ -679,10 +662,10 @@ window.initFeeModule = initFeeModule;
 window.showAddFeeModal = showAddFeeModal;
 window.editFee = editFee;
 window.deleteFee = deleteFee;
-window.deleteFeeRecord = deleteFeeRecord;
 window.showStudentDetail = showStudentDetail;
 window.openCollectFeeModal = openCollectFeeModal;
 window.processFeePayment = processFeePayment;
 window.showPaymentHistory = showPaymentHistory;
-window.printLastReceipt = printLastReceipt;
-window.updateFeeCalculator = updateFeeCalculator;
+window.openBulkCollectModal = openBulkCollectModal;
+window.processBulkCollection = processBulkCollection;
+window.applyFeeFilters = applyFeeFilters;
