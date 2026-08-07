@@ -11,19 +11,15 @@ import { createData, updateData, deleteData } from './firebase.js';
 function renderSalary(statusFilter = 'all', search = '') {
   const salaryRecords = window.SALARY_RECORDS || [];
 
-  // Stats
   const totalPaid = salaryRecords.filter(s => s.status === 'paid').reduce((sum, s) => sum + (s.amount || 0), 0);
   const totalPending = salaryRecords.filter(s => s.status === 'pending').reduce((sum, s) => sum + (s.amount || 0), 0);
   const totalRecords = salaryRecords.length;
 
-  const statsGrid = document.getElementById('salaryStatsGrid');
-  if (statsGrid) {
-    statsGrid.innerHTML = `
-      <div class="stat-card"><span class="stat-label">Total Salary Paid</span><span class="stat-value">₹${totalPaid.toLocaleString()}</span></div>
-      <div class="stat-card"><span class="stat-label">Total Salary Pending</span><span class="stat-value">₹${totalPending.toLocaleString()}</span></div>
-      <div class="stat-card"><span class="stat-label">Total Records</span><span class="stat-value">${totalRecords}</span></div>
-    `;
-  }
+  document.getElementById('salaryStatsGrid').innerHTML = `
+    <div class="stat-card"><span class="stat-label">Total Salary Paid</span><span class="stat-value">₹${totalPaid.toLocaleString()}</span></div>
+    <div class="stat-card"><span class="stat-label">Total Salary Pending</span><span class="stat-value">₹${totalPending.toLocaleString()}</span></div>
+    <div class="stat-card"><span class="stat-label">Total Records</span><span class="stat-value">${totalRecords}</span></div>
+  `;
 
   let list = salaryRecords;
   if (statusFilter !== 'all') {
@@ -46,6 +42,7 @@ function renderSalary(statusFilter = 'all', search = '') {
     <tr>
       <td>${idx + 1}</td>
       <td>${s.employeeName}</td>
+      <td>${s.employeeId || '—'}</td>
       <td><span class="status-badge ${s.role === 'teacher' ? 'status-paid' : 'status-pending'}">${s.role}</span></td>
       <td>${s.month}</td>
       <td>${s.year}</td>
@@ -77,16 +74,14 @@ function getEligibleTeachers(month, year) {
 }
 
 // ============================================================
-// ADD SALARY (WITH ELIGIBILITY & DUPLICATE CHECK)
+// ADD SALARY (WITH ELIGIBILITY, EMPLOYEE ID)
 // ============================================================
 
 function showAddSalaryModal() {
-  // Default to current month/year
   const now = new Date();
   const defaultMonth = now.toLocaleString('default', { month: 'long' });
   const defaultYear = now.getFullYear();
 
-  // Get eligible teachers for default month/year
   const eligible = getEligibleTeachers(defaultMonth, defaultYear);
   const employeeOptions = eligible.map(t =>
     `<option value="${t.id}">${t.name} (${t.role})</option>`
@@ -103,25 +98,25 @@ function showAddSalaryModal() {
 
   const modalHTML = `
     <div class="form-group"><label>Month</label>
-      <select id="addSalaryMonth" style="width:100%; padding:0.5rem; border:1px solid var(--gray-200); border-radius:var(--radius);">${monthOptions}</select>
+      <select id="addSalaryMonth">${monthOptions}</select>
     </div>
     <div class="form-group"><label>Year</label>
-      <select id="addSalaryYear" style="width:100%; padding:0.5rem; border:1px solid var(--gray-200); border-radius:var(--radius);">${yearOptions}</select>
+      <select id="addSalaryYear">${yearOptions}</select>
     </div>
     <div class="form-group"><label>Teacher</label>
-      <select id="addSalaryEmployee" style="width:100%; padding:0.5rem; border:1px solid var(--gray-200); border-radius:var(--radius);">
+      <select id="addSalaryEmployee">
         ${employeeOptions || '<option value="">No eligible teachers</option>'}
       </select>
     </div>
-    <div class="form-group"><label>Amount (₹)</label><input type="number" id="addSalaryAmount" placeholder="Enter salary amount" style="width:100%; padding:0.5rem; border:1px solid var(--gray-200); border-radius:var(--radius);" /></div>
+    <div class="form-group"><label>Amount (₹)</label><input type="number" id="addSalaryAmount" placeholder="Enter salary amount" /></div>
     <div class="form-group"><label>Status</label>
-      <select id="addSalaryStatus" style="width:100%; padding:0.5rem; border:1px solid var(--gray-200); border-radius:var(--radius);">
+      <select id="addSalaryStatus">
         <option value="paid">Paid</option>
         <option value="pending">Pending</option>
       </select>
     </div>
     <div class="form-group"><label>Payment Method</label>
-      <select id="addSalaryPaymentMethod" style="width:100%; padding:0.5rem; border:1px solid var(--gray-200); border-radius:var(--radius);">
+      <select id="addSalaryPaymentMethod">
         <option value="">— Select —</option>
         ${paymentMethodOptions}
       </select>
@@ -131,12 +126,12 @@ function showAddSalaryModal() {
   window.openModal('Add Salary', modalHTML, 'Add Salary', async () => {
     const month = document.getElementById('addSalaryMonth').value;
     const year = parseInt(document.getElementById('addSalaryYear').value);
-    const employeeId = document.getElementById('addSalaryEmployee').value;
+    const teacherId = document.getElementById('addSalaryEmployee').value;
     const amount = parseFloat(document.getElementById('addSalaryAmount').value);
     const status = document.getElementById('addSalaryStatus').value;
     const paymentMethod = document.getElementById('addSalaryPaymentMethod').value;
 
-    if (!employeeId || !month || !year || isNaN(amount) || amount <= 0) {
+    if (!teacherId || !month || !year || isNaN(amount) || amount <= 0) {
       window.showToast('Please fill all fields with valid values', 'error');
       return;
     }
@@ -146,29 +141,30 @@ function showAddSalaryModal() {
       return;
     }
 
-    // Duplicate check (final safeguard)
-    const existing = window.SALARY_RECORDS.find(s => s.employeeId === employeeId && s.month === month && s.year === year);
+    // Duplicate check
+    const existing = window.SALARY_RECORDS.find(s => s.employeeId === teacherId && s.month === month && s.year === year);
     if (existing) {
       window.showToast('This teacher already has a salary record for this month/year.', 'error');
       return;
     }
 
-    const employee = window.TEACHERS.find(t => t.id === employeeId);
-    if (!employee) {
+    const teacher = window.TEACHERS.find(t => t.id === teacherId);
+    if (!teacher) {
       window.showToast('Teacher not found', 'error');
       return;
     }
 
-    // Generate receipt number if paid
+    const employeeId = teacher.employeeId; // Read from teacher record
+
     let receiptNo = '';
     if (status === 'paid') {
       receiptNo = `SAL-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
     }
 
     const newSalary = {
-      employeeId,
-      employeeName: employee.name,
-      role: employee.role,
+      employeeId,                             // store Employee ID
+      employeeName: teacher.name,
+      role: teacher.role,
       month,
       year,
       amount,
