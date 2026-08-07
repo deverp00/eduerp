@@ -1,8 +1,46 @@
 // ============================================================
-// TEACHERS & STAFF – CRUD + Render + Conditional Logic
+// TEACHERS & STAFF – CRUD, Render, Employee ID
 // ============================================================
 
 import { createData, updateData, deleteData } from './firebase.js';
+
+// ============================================================
+// EMPLOYEE ID GENERATION
+// ============================================================
+
+function getNextEmployeeId() {
+  const teachers = window.TEACHERS || [];
+  let maxNum = 0;
+  teachers.forEach(t => {
+    if (t.employeeId) {
+      const match = t.employeeId.match(/EMP-(\d+)/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNum) maxNum = num;
+      }
+    }
+  });
+  const nextNum = maxNum + 1;
+  const padded = String(nextNum).padStart(4, '0');
+  return `EMP-${padded}`;
+}
+
+async function migrateEmployeeIds() {
+  const teachers = window.TEACHERS || [];
+  let updated = 0;
+  for (const teacher of teachers) {
+    if (!teacher.employeeId) {
+      const newId = getNextEmployeeId();
+      await updateData('teachers', teacher.id, { employeeId: newId });
+      teacher.employeeId = newId;
+      updated++;
+    }
+  }
+  if (updated > 0) {
+    console.log(`Migrated ${updated} teachers with Employee IDs.`);
+  }
+  return updated;
+}
 
 // ============================================================
 // RENDER STAFF TABLE + STATS
@@ -11,19 +49,15 @@ import { createData, updateData, deleteData } from './firebase.js';
 function renderStaff(filter = 'all', search = '') {
   const teachers = window.TEACHERS || [];
 
-  // Stats
   const totalTeachers = teachers.filter(t => t.role === 'teacher').length;
   const totalStaff = teachers.filter(t => t.role === 'staff').length;
   const totalEmployees = teachers.length;
 
-  const statsGrid = document.getElementById('staffStatsGrid');
-  if (statsGrid) {
-    statsGrid.innerHTML = `
-      <div class="stat-card"><span class="stat-label">Total Teachers</span><span class="stat-value">${totalTeachers}</span></div>
-      <div class="stat-card"><span class="stat-label">Total Staff</span><span class="stat-value">${totalStaff}</span></div>
-      <div class="stat-card"><span class="stat-label">Total Employees</span><span class="stat-value">${totalEmployees}</span></div>
-    `;
-  }
+  document.getElementById('staffStatsGrid').innerHTML = `
+    <div class="stat-card"><span class="stat-label">Total Teachers</span><span class="stat-value">${totalTeachers}</span></div>
+    <div class="stat-card"><span class="stat-label">Total Staff</span><span class="stat-value">${totalStaff}</span></div>
+    <div class="stat-card"><span class="stat-label">Total Employees</span><span class="stat-value">${totalEmployees}</span></div>
+  `;
 
   let list = teachers;
   if (filter !== 'all') {
@@ -42,13 +76,15 @@ function renderStaff(filter = 'all', search = '') {
   if (!tbody) return;
 
   if (list.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--gray-500); padding:2rem;">No employees found.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--gray-500); padding:2rem;">No employees found.</td></tr>`;
     return;
   }
 
+  // Add Employee ID column
   tbody.innerHTML = list.map((t, idx) => `
     <tr>
       <td>${idx + 1}</td>
+      <td>${t.employeeId || '—'}</td>
       <td>${t.name}</td>
       <td><span class="status-badge ${t.role === 'teacher' ? 'status-paid' : 'status-pending'}">${t.role}</span></td>
       <td>${t.designation}</td>
@@ -63,7 +99,6 @@ function renderStaff(filter = 'all', search = '') {
     </tr>
   `).join('');
 
-  // Attach event listeners
   tbody.querySelectorAll('[data-action="editStaff"]').forEach(btn => {
     btn.addEventListener('click', () => editStaff(btn.dataset.id));
   });
@@ -73,24 +108,7 @@ function renderStaff(filter = 'all', search = '') {
 }
 
 // ============================================================
-// CONDITIONAL LOGIC HELPER
-// ============================================================
-
-function setupStaffConditionalLogic(designationId, subjectGroupId) {
-  const designSelect = document.getElementById(designationId);
-  const subjectGroup = document.getElementById(subjectGroupId);
-  if (designSelect && subjectGroup) {
-    const update = () => {
-      subjectGroup.style.display = designSelect.value === 'Subject Teacher' ? 'block' : 'none';
-    };
-    designSelect.addEventListener('change', update);
-    // Initial state
-    update();
-  }
-}
-
-// ============================================================
-// ADD STAFF
+// ADD STAFF (with Employee ID)
 // ============================================================
 
 function showAddStaffModal() {
@@ -99,7 +117,7 @@ function showAddStaffModal() {
   const subjectOptions = ['Mathematics', 'Science', 'English', 'Hindi', 'Social Studies', 'Computer Science', 'Physical Education', 'Arts', 'Music', 'N/A']
     .map(s => `<option value="${s}">${s}</option>`).join('');
 
-  const modalHTML = `
+  window.openModal('Add Teacher / Staff', `
     <div class="form-group"><label>Name</label><input type="text" id="addStaffName" placeholder="Full name" /></div>
     <div class="form-group"><label>Role</label>
       <select id="addStaffRole">
@@ -115,9 +133,7 @@ function showAddStaffModal() {
       <select id="addStaffSubject">${subjectOptions}</select>
     </div>
     <div class="form-group"><label>Email</label><input type="email" id="addStaffEmail" placeholder="email@school.com" /></div>
-  `;
-
-  window.openModal('Add Teacher / Staff', modalHTML, 'Add', async () => {
+  `, 'Add', async () => {
     const name = document.getElementById('addStaffName').value.trim();
     const role = document.getElementById('addStaffRole').value;
     const designation = document.getElementById('addStaffDesignation').value;
@@ -125,39 +141,32 @@ function showAddStaffModal() {
     const subject = subjectEl ? subjectEl.value : 'N/A';
     const email = document.getElementById('addStaffEmail').value.trim();
 
-    // Validate
     if (!name || !email) {
       window.showToast('Please fill all fields', 'error');
       return;
     }
-    if (!email.includes('@')) {
-      window.showToast('Please enter a valid email address', 'error');
-      return;
-    }
 
-    const newStaff = { name, role, designation, subDepartment: subject, email };
+    const employeeId = getNextEmployeeId(); // Generate unique Employee ID
 
-    const btn = document.querySelector('#modal .btn-primary');
-    if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
-
-    try {
-      const result = await createData('teachers', newStaff);
-      window.TEACHERS.push(result);
-      window.showToast('Added successfully', 'success');
-      renderStaff();
-      if (window.renderDashboard) window.renderDashboard();
-      window.closeModal();
-    } catch (error) {
-      console.error('Add staff error:', error);
-      window.showToast('Failed to add staff. Please try again.', 'error');
-    } finally {
-      if (btn) { btn.disabled = false; btn.textContent = 'Add'; }
-    }
+    const newStaff = { name, role, designation, subDepartment: subject, email, employeeId };
+    const result = await createData('teachers', newStaff);
+    window.TEACHERS.push(result);
+    window.showToast('Added successfully', 'success');
+    renderStaff();
+    if (window.renderDashboard) window.renderDashboard();
+    window.closeModal();
   });
 
-  // Conditional logic
+  // Conditional logic for Subject Teacher
   setTimeout(() => {
-    setupStaffConditionalLogic('addStaffDesignation', 'addSubjectGroup');
+    const designSelect = document.getElementById('addStaffDesignation');
+    const subjectGroup = document.getElementById('addSubjectGroup');
+    if (designSelect && subjectGroup) {
+      designSelect.addEventListener('change', function() {
+        subjectGroup.style.display = this.value === 'Subject Teacher' ? 'block' : 'none';
+      });
+      subjectGroup.style.display = designSelect.value === 'Subject Teacher' ? 'block' : 'none';
+    }
   }, 50);
 }
 
@@ -174,7 +183,7 @@ async function editStaff(id) {
   const subjectOptions = ['Mathematics', 'Science', 'English', 'Hindi', 'Social Studies', 'Computer Science', 'Physical Education', 'Arts', 'Music', 'N/A']
     .map(s => `<option value="${s}" ${s === staff.subDepartment ? 'selected' : ''}>${s}</option>`).join('');
 
-  const modalHTML = `
+  window.openModal('Edit Teacher / Staff', `
     <div class="form-group"><label>Name</label><input type="text" id="editStaffName" value="${staff.name}" /></div>
     <div class="form-group"><label>Role</label>
       <select id="editStaffRole">
@@ -190,49 +199,38 @@ async function editStaff(id) {
       <select id="editStaffSubject">${subjectOptions}</select>
     </div>
     <div class="form-group"><label>Email</label><input type="email" id="editStaffEmail" value="${staff.email}" /></div>
-  `;
-
-  window.openModal('Edit Teacher / Staff', modalHTML, 'Update', async () => {
+  `, 'Update', async () => {
     const name = document.getElementById('editStaffName').value.trim();
     const role = document.getElementById('editStaffRole').value;
     const designation = document.getElementById('editStaffDesignation').value;
     const subject = document.getElementById('editStaffSubject') ? document.getElementById('editStaffSubject').value : 'N/A';
     const email = document.getElementById('editStaffEmail').value.trim();
 
-    // Validate
     if (!name || !email) {
       window.showToast('Please fill all fields', 'error');
       return;
     }
-    if (!email.includes('@')) {
-      window.showToast('Please enter a valid email address', 'error');
-      return;
-    }
 
+    // Employee ID is preserved – do not change it
     const updated = { name, role, designation, subDepartment: subject, email };
-
-    const btn = document.querySelector('#modal .btn-primary');
-    if (btn) { btn.disabled = true; btn.textContent = 'Updating...'; }
-
-    try {
-      await updateData('teachers', id, updated);
-      const idx = window.TEACHERS.findIndex(t => t.id === id);
-      if (idx !== -1) window.TEACHERS[idx] = { ...window.TEACHERS[idx], ...updated };
-      window.showToast('Updated successfully', 'success');
-      renderStaff();
-      if (window.renderDashboard) window.renderDashboard();
-      window.closeModal();
-    } catch (error) {
-      console.error('Update staff error:', error);
-      window.showToast('Failed to update staff. Please try again.', 'error');
-    } finally {
-      if (btn) { btn.disabled = false; btn.textContent = 'Update'; }
-    }
+    await updateData('teachers', id, updated);
+    const idx = window.TEACHERS.findIndex(t => t.id === id);
+    if (idx !== -1) window.TEACHERS[idx] = { ...window.TEACHERS[idx], ...updated };
+    window.showToast('Updated successfully', 'success');
+    renderStaff();
+    if (window.renderDashboard) window.renderDashboard();
+    window.closeModal();
   });
 
-  // Conditional logic
   setTimeout(() => {
-    setupStaffConditionalLogic('editStaffDesignation', 'editSubjectGroup');
+    const designSelect = document.getElementById('editStaffDesignation');
+    const subjectGroup = document.getElementById('editSubjectGroup');
+    if (designSelect && subjectGroup) {
+      designSelect.addEventListener('change', function() {
+        subjectGroup.style.display = this.value === 'Subject Teacher' ? 'block' : 'none';
+      });
+      subjectGroup.style.display = designSelect.value === 'Subject Teacher' ? 'block' : 'none';
+    }
   }, 50);
 }
 
@@ -242,22 +240,11 @@ async function editStaff(id) {
 
 async function deleteStaff(id) {
   if (!confirm('Delete this record?')) return;
-
-  const btn = document.querySelector(`button[data-id="${id}"][data-action="deleteStaff"]`);
-  if (btn) { btn.disabled = true; btn.textContent = 'Deleting...'; }
-
-  try {
-    await deleteData('teachers', id);
-    window.TEACHERS = window.TEACHERS.filter(t => t.id !== id);
-    window.showToast('Deleted', 'success');
-    renderStaff();
-    if (window.renderDashboard) window.renderDashboard();
-  } catch (error) {
-    console.error('Delete staff error:', error);
-    window.showToast('Failed to delete staff. Please try again.', 'error');
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'Delete'; }
-  }
+  await deleteData('teachers', id);
+  window.TEACHERS = window.TEACHERS.filter(t => t.id !== id);
+  window.showToast('Deleted', 'success');
+  renderStaff();
+  if (window.renderDashboard) window.renderDashboard();
 }
 
 // ============================================================
@@ -293,3 +280,4 @@ window.renderStaff = renderStaff;
 window.showAddStaffModal = showAddStaffModal;
 window.editStaff = editStaff;
 window.deleteStaff = deleteStaff;
+window.migrateEmployeeIds = migrateEmployeeIds;
