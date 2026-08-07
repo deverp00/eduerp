@@ -3,10 +3,10 @@
 // ============================================================
 
 import { initializeApp } from "firebase/app";
-import { getDatabase, ref, set, push, onValue, remove, update, get, child } from "firebase/database";
+import { getDatabase, ref, set, push, update, remove, get } from "firebase/database";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
 
-// Your Firebase config (from the user)
+// Your Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyBLX-DBrAZZgi7OGRW3-oeno0PJsZ9hzEg",
   authDomain: "its-me-ame.firebaseapp.com",
@@ -38,7 +38,7 @@ function loginAdmin(email, password) {
 }
 
 /**
- * Get the currently authenticated user.
+ * Get the currently authenticated user (one-time check).
  * @returns {Promise} - Resolves with user object or null.
  */
 function getCurrentUser() {
@@ -55,22 +55,18 @@ function getCurrentUser() {
 // ============================================================
 
 /**
- * Read all records from a path.
+ * Read all records from a path (one-time read).
  * @param {string} path - Database path (e.g., 'students').
  * @returns {Promise<Array>} - Array of objects with id and data.
  */
 function getAllData(path) {
-  return new Promise((resolve, reject) => {
-    const dbRef = ref(db, path);
-    onValue(dbRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        const arr = Object.keys(data).map(key => ({ id: key, ...data[key] }));
-        resolve(arr);
-      } else {
-        resolve([]);
-      }
-    }, (error) => reject(error));
+  const dbRef = ref(db, path);
+  return get(dbRef).then((snapshot) => {
+    const data = snapshot.val();
+    if (data) {
+      return Object.keys(data).map((key) => ({ id: key, ...data[key] }));
+    }
+    return [];
   });
 }
 
@@ -116,7 +112,7 @@ function deleteData(path, id) {
  */
 function getOneData(path, id) {
   const itemRef = ref(db, `${path}/${id}`);
-  return get(itemRef).then(snapshot => snapshot.val());
+  return get(itemRef).then((snapshot) => snapshot.val());
 }
 
 // ============================================================
