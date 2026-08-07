@@ -5,6 +5,34 @@
 import { createData, updateData, deleteData } from './firebase.js';
 
 // ============================================================
+// HELPERS – Monthly Fee Logic
+// ============================================================
+
+function getMonthlyFeeAmount(studentId) {
+  const fee = window.FEE_RECORDS.find(f => f.studentId === studentId && f.feeType === 'Monthly Fee');
+  return fee ? fee.amount : 0;
+}
+
+function isMonthPaid(studentId, month, year) {
+  const payments = window.PAYMENTS.filter(p => p.studentId === studentId);
+  const monthlyAmount = getMonthlyFeeAmount(studentId);
+  if (monthlyAmount === 0) return false; // No monthly fee defined
+  const totalPaid = payments
+    .filter(p => p.month === month && p.year === year)
+    .reduce((sum, p) => sum + (p.amount || 0), 0);
+  return totalPaid >= monthlyAmount;
+}
+
+function getCurrentMonth() {
+  const now = new Date();
+  return now.toLocaleString('default', { month: 'long' });
+}
+
+function getCurrentYear() {
+  return new Date().getFullYear();
+}
+
+// ============================================================
 // RENDER FEES TABLE + ANALYTICS
 // ============================================================
 
@@ -55,10 +83,17 @@ function renderFees(statusFilter = 'all', search = '', studentId = null, classFi
     return;
   }
 
+  const currentMonth = getCurrentMonth();
+  const currentYear = getCurrentYear();
+
   tbody.innerHTML = list.map((f, idx) => {
     const student = students.find(s => s.id === f.studentId);
     const studentName = student ? student.name : 'Unknown';
     const studentClass = student ? `${student.class}${student.section}` : 'N/A';
+    // Check if current month's fee is paid
+    const monthlyPaid = student ? isMonthPaid(student.id, currentMonth, currentYear) : false;
+    const isCollectActive = !monthlyPaid && getMonthlyFeeAmount(student?.id) > 0;
+
     return `
     <tr>
       <td>${idx + 1}</td>
@@ -70,11 +105,15 @@ function renderFees(statusFilter = 'all', search = '', studentId = null, classFi
       <td>₹${(f.pending || 0).toLocaleString()}</td>
       <td><span class="status-badge status-${f.status}">${f.status}</span></td>
       <td>
-        <div class="actions-cell">
-          <button class="btn-edit" onclick="window.showStudentDetail('${f.studentId}')">View</button>
-          <button class="btn-primary" onclick="window.openCollectFeeModal('${f.studentId}')" style="background:var(--primary); color:white; padding:0.2rem 0.6rem; border-radius:var(--radius); border:none; font-size:0.75rem;">Collect</button>
+        <div class="actions-cell" style="display:flex; align-items:center; gap:0.25rem; flex-wrap:nowrap;">
+          <button class="btn-edit" onclick="window.showStudentDetail('${f.studentId}')" style="white-space:nowrap;">View</button>
+          <button class="btn-primary" onclick="window.openCollectFeeModal('${f.studentId}')" 
+                  style="background:${isCollectActive ? 'var(--primary)' : 'var(--gray-400)'}; color:white; padding:0.2rem 0.6rem; border-radius:var(--radius); border:none; font-size:0.75rem; cursor:${isCollectActive ? 'pointer' : 'default'}; opacity:${isCollectActive ? '1' : '0.6'}; white-space:nowrap;" 
+                  ${isCollectActive ? '' : 'disabled'}>
+            Collect
+          </button>
           <div class="dropdown" style="display:inline-block; position:relative;">
-            <button class="btn-edit" onclick="toggleDropdown(this)" style="background:transparent; border:none; font-size:1.2rem;">⋮</button>
+            <button class="btn-edit" onclick="toggleDropdown(this)" style="background:transparent; border:none; font-size:1.2rem; padding:0 0.25rem;">⋮</button>
             <div class="dropdown-content" style="display:none; position:absolute; right:0; background:white; box-shadow:var(--shadow-lg); border-radius:var(--radius); min-width:160px; z-index:10;">
               <div onclick="window.showPaymentHistory('${f.studentId}')" style="padding:0.5rem 1rem; cursor:pointer;">Payment History</div>
               <div onclick="window.viewReceipt('${f.id}')" style="padding:0.5rem 1rem; cursor:pointer;">View Receipt</div>
@@ -179,7 +218,7 @@ function setupFeeSearch() {
 }
 
 // ============================================================
-// STUDENT DETAIL PANEL
+// STUDENT DETAIL PANEL (with Close button)
 // ============================================================
 
 function showStudentDetail(id) {
@@ -192,9 +231,15 @@ function showStudentDetail(id) {
   const lastPayment = payments.length ? payments[payments.length-1] : null;
   const feeRecordsForStudent = window.FEE_RECORDS.filter(f => f.studentId === id);
   const pendingTotal = feeRecordsForStudent.reduce((sum, f) => sum + (f.pending || 0), 0);
+  const monthlyAmount = getMonthlyFeeAmount(id);
+  const currentMonthPaid = isMonthPaid(id, getCurrentMonth(), getCurrentYear());
 
   panel.style.display = 'block';
   panel.innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0.5rem;">
+      <h3 style="margin:0;">Student Details</h3>
+      <button id="closeDetailPanel" style="background:transparent; border:none; font-size:1.5rem; cursor:pointer; color:var(--gray-500); padding:0 0.25rem;">×</button>
+    </div>
     <div style="display:flex; gap:1.5rem; flex-wrap:wrap;">
       <div style="display:flex; gap:1rem; align-items:center;">
         <div class="student-avatar">${student.name.charAt(0)}</div>
@@ -210,6 +255,8 @@ function showStudentDetail(id) {
           <div class="label">Total Paid</div><div class="value">₹${totalPaid.toLocaleString()}</div>
           <div class="label">Pending Amount</div><div class="value">₹${pendingTotal.toLocaleString()}</div>
           <div class="label">Last Payment</div><div class="value">${lastPayment ? new Date(lastPayment.date).toLocaleDateString() : 'N/A'}</div>
+          <div class="label">Monthly Fee</div><div class="value">₹${monthlyAmount.toLocaleString()}</div>
+          <div class="label">Current Month Status</div><div class="value"><span class="status-badge ${currentMonthPaid ? 'status-paid' : 'status-pending'}">${currentMonthPaid ? 'Paid' : 'Due'}</span></div>
         </div>
       </div>
       <div style="display:flex; gap:0.5rem; align-items:center; margin-left:auto;">
@@ -230,10 +277,15 @@ function showStudentDetail(id) {
       </div>
     </div>
   `;
+
+  // Close button handler
+  document.getElementById('closeDetailPanel').addEventListener('click', function() {
+    panel.style.display = 'none';
+  });
 }
 
 // ============================================================
-// COLLECT FEE (Smart Calculator)
+// COLLECT FEE (Smart Calculator) – pre‑fill with current month
 // ============================================================
 
 function openCollectFeeModal(studentId) {
@@ -242,6 +294,9 @@ function openCollectFeeModal(studentId) {
   const studentFees = window.FEE_RECORDS.filter(f => f.studentId === studentId);
   const totalFee = studentFees.reduce((sum, f) => sum + (f.amount || 0), 0);
   const pending = studentFees.reduce((sum, f) => sum + (f.pending || 0), 0);
+  const monthlyAmount = getMonthlyFeeAmount(studentId);
+  const currentMonth = getCurrentMonth();
+  const currentYear = getCurrentYear();
 
   const modalHTML = `
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
@@ -251,9 +306,10 @@ function openCollectFeeModal(studentId) {
         <div class="form-group"><label>Previous Balance</label><input type="number" id="calcPrevBalance" value="${pending}" disabled /></div>
         <div class="form-group"><label>Discount (₹)</label><input type="number" id="calcDiscount" value="0" oninput="window.updateFeeCalculator()" /></div>
         <div class="form-group"><label>Late Fine (₹)</label><input type="number" id="calcLateFine" value="0" oninput="window.updateFeeCalculator()" /></div>
+        <div class="form-group"><label>Month</label><input type="text" value="${currentMonth} ${currentYear}" disabled /></div>
       </div>
       <div>
-        <div class="form-group"><label>Amount Received (₹)</label><input type="number" id="calcAmountReceived" value="${totalFee - pending}" oninput="window.updateFeeCalculator()" /></div>
+        <div class="form-group"><label>Amount Received (₹)</label><input type="number" id="calcAmountReceived" value="${monthlyAmount}" oninput="window.updateFeeCalculator()" /></div>
         <div class="form-group"><label>Payment Method</label>
           <select id="calcPaymentMethod">
             <option value="Cash">Cash</option>
@@ -264,12 +320,11 @@ function openCollectFeeModal(studentId) {
         </div>
         <div class="form-group"><label>Remaining Balance</label><input type="number" id="calcRemaining" value="${pending}" disabled /></div>
         <div style="background:var(--gray-50); padding:0.75rem; border-radius:var(--radius); margin-top:0.5rem;">
-          <p><strong>Total Fee:</strong> <span id="calcDisplayTotal">${totalFee}</span></p>
-          <p><strong>Previous Balance:</strong> <span id="calcDisplayPrev">${pending}</span></p>
+          <p><strong>Monthly Fee:</strong> ₹${monthlyAmount}</p>
           <p><strong>Discount:</strong> <span id="calcDisplayDiscount">0</span></p>
           <p><strong>Late Fine:</strong> <span id="calcDisplayFine">0</span></p>
-          <p><strong>Amount Received:</strong> <span id="calcDisplayReceived">${totalFee - pending}</span></p>
-          <p><strong>Remaining:</strong> <span id="calcDisplayRemaining">${pending}</span></p>
+          <p><strong>Amount Received:</strong> <span id="calcDisplayReceived">${monthlyAmount}</span></p>
+          <p><strong>Remaining Balance:</strong> <span id="calcDisplayRemaining">${pending}</span></p>
         </div>
       </div>
     </div>
@@ -277,17 +332,13 @@ function openCollectFeeModal(studentId) {
       <button class="btn btn-primary" onclick="window.processFeePayment('${studentId}')">Process Payment</button>
     </div>
   `;
-  window.openModal('Collect Fee', modalHTML, 'Cancel', () => { window.closeModal(); });
+  window.openModal('Collect Monthly Fee', modalHTML, 'Cancel', () => { window.closeModal(); });
   window.updateFeeCalculator = function() {
-    const totalFee = parseFloat(document.getElementById('calcTotalFee').value) || 0;
-    const prevBalance = parseFloat(document.getElementById('calcPrevBalance').value) || 0;
     const discount = parseFloat(document.getElementById('calcDiscount').value) || 0;
     const lateFine = parseFloat(document.getElementById('calcLateFine').value) || 0;
     const received = parseFloat(document.getElementById('calcAmountReceived').value) || 0;
-    const remaining = prevBalance + lateFine - discount - received;
+    const remaining = (parseFloat(document.getElementById('calcPrevBalance').value) || 0) + lateFine - discount - received;
     document.getElementById('calcRemaining').value = remaining.toFixed(2);
-    document.getElementById('calcDisplayTotal').textContent = totalFee;
-    document.getElementById('calcDisplayPrev').textContent = prevBalance;
     document.getElementById('calcDisplayDiscount').textContent = discount;
     document.getElementById('calcDisplayFine').textContent = lateFine;
     document.getElementById('calcDisplayReceived').textContent = received;
@@ -296,7 +347,7 @@ function openCollectFeeModal(studentId) {
 }
 
 // ============================================================
-// PROCESS PAYMENT
+// PROCESS PAYMENT – record with month & year
 // ============================================================
 
 async function processFeePayment(studentId) {
@@ -307,9 +358,10 @@ async function processFeePayment(studentId) {
     return;
   }
 
+  // Create fee record
   const newFee = {
     studentId: studentId,
-    feeType: 'Payment',
+    feeType: 'Monthly Fee',
     amount: received,
     paid: received,
     pending: 0,
@@ -318,12 +370,14 @@ async function processFeePayment(studentId) {
   const feeResult = await createData('feeRecords', newFee);
   window.FEE_RECORDS.push(feeResult);
 
+  // Create payment history with month & year
   const receiptNo = `RCP-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
   const payment = {
     studentId: studentId,
     receiptNo: receiptNo,
     date: new Date().toISOString().split('T')[0],
-    month: new Date().toLocaleString('default', { month: 'long' }),
+    month: getCurrentMonth(),
+    year: getCurrentYear(),
     amount: received,
     method: method,
     status: 'paid'
@@ -353,7 +407,7 @@ function showPaymentHistory(studentId) {
     <tr>
       <td>${p.receiptNo}</td>
       <td>${new Date(p.date).toLocaleDateString()}</td>
-      <td>${p.month}</td>
+      <td>${p.month} ${p.year}</td>
       <td>₹${(p.amount || 0).toLocaleString()}</td>
       <td>${p.method}</td>
       <td><span class="status-badge status-${p.status}">${p.status}</span></td>
@@ -368,7 +422,7 @@ function showPaymentHistory(studentId) {
   window.openModal(`Payment History – ${student.name}`, `
     <div style="overflow-x:auto;">
       <table class="data-table">
-        <thead><tr><th>Receipt No</th><th>Date</th><th>Month</th><th>Amount</th><th>Method</th><th>Status</th><th>Actions</th></tr></thead>
+        <thead><tr><th>Receipt No</th><th>Date</th><th>Month/Year</th><th>Amount</th><th>Method</th><th>Status</th><th>Actions</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>
@@ -376,7 +430,7 @@ function showPaymentHistory(studentId) {
 }
 
 // ============================================================
-// BULK COLLECT
+// BULK COLLECT (unchanged)
 // ============================================================
 
 function openBulkCollectModal() {
@@ -458,7 +512,7 @@ function initFeeModule() {
 }
 
 // ============================================================
-// ADD FEE
+// ADD FEE (unchanged)
 // ============================================================
 
 function showAddFeeModal() {
@@ -523,7 +577,7 @@ function showAddFeeModal() {
 }
 
 // ============================================================
-// EDIT FEE
+// EDIT FEE (unchanged)
 // ============================================================
 
 async function editFee(id) {
@@ -604,7 +658,7 @@ async function editFee(id) {
 }
 
 // ============================================================
-// DELETE FEE
+// DELETE FEE (unchanged)
 // ============================================================
 
 async function deleteFee(id) {
@@ -615,6 +669,15 @@ async function deleteFee(id) {
   renderFees();
   if (window.renderDashboard) window.renderDashboard();
 }
+
+// ============================================================
+// RECEIPT FUNCTIONS (placeholders)
+// ============================================================
+
+function viewReceipt(id) { window.showToast('Receipt view coming soon', 'info'); }
+function reprintReceipt(id) { window.showToast('Reprint coming soon', 'info'); }
+function downloadReceiptPDF(id) { window.showToast('PDF download coming soon', 'info'); }
+function printLastReceipt(id) { window.showToast('Print last receipt coming soon', 'info'); }
 
 // ============================================================
 // EXPOSE GLOBALLY
@@ -631,3 +694,7 @@ window.processFeePayment = processFeePayment;
 window.showPaymentHistory = showPaymentHistory;
 window.openBulkCollectModal = openBulkCollectModal;
 window.processBulkCollection = processBulkCollection;
+window.viewReceipt = viewReceipt;
+window.reprintReceipt = reprintReceipt;
+window.downloadReceiptPDF = downloadReceiptPDF;
+window.printLastReceipt = printLastReceipt;
