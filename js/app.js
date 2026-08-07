@@ -2,7 +2,7 @@
 // CORE APPLICATION – Navigation, Modal, Toast, Loading, Data
 // ============================================================
 
-import { getCurrentUser, getAllData } from './firebase.js';
+import { getCurrentUser, getAllData, logoutAdmin } from './firebase.js';
 
 // ============================================================
 // DOM REFS
@@ -24,6 +24,7 @@ const toastContainer = document.getElementById('toastContainer');
 const loadingOverlay = document.getElementById('loadingOverlay');
 const notificationBtn = document.getElementById('notificationBtn');
 const badgeDot = document.querySelector('.badge-dot');
+const logoutBtn = document.getElementById('logoutBtn');
 
 let currentPage = 'dashboard';
 let modalCallback = null;
@@ -91,7 +92,7 @@ function navigateTo(page) {
   };
   const title = titles[page] || 'Dashboard';
   pageTitle.textContent = title;
-  document.title = `SchoolERP | ${title}`; // NEW: update browser tab title
+  document.title = `SchoolERP | ${title}`;
 
   switch (page) {
     case 'dashboard': if (window.renderDashboard) window.renderDashboard(); break;
@@ -162,6 +163,24 @@ if (notificationBtn) {
 // Hide badge initially (no notifications)
 if (badgeDot) {
   badgeDot.style.display = 'none';
+}
+
+// ============================================================
+// LOGOUT HANDLER
+// ============================================================
+
+if (logoutBtn) {
+  logoutBtn.addEventListener('click', async () => {
+    try {
+      await logoutAdmin();
+      showToast('Logged out successfully.', 'success');
+      // Reload the page to trigger the login overlay from login.js
+      window.location.reload();
+    } catch (error) {
+      console.error('Logout error:', error);
+      showToast('Logout failed. Please try again.', 'error');
+    }
+  });
 }
 
 // ============================================================
