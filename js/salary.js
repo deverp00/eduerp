@@ -2,7 +2,7 @@
 // SALARY MODULE – CRUD, Render, Filters, One-payment-per-month
 // ============================================================
 
-import { createData, updateData, deleteData } from './firebase.js';
+import { createData, deleteData } from './firebase.js';
 
 // ============================================================
 // RENDER SALARY TABLE + STATS
@@ -34,7 +34,7 @@ function renderSalary(statusFilter = 'all', search = '') {
   if (!tbody) return;
 
   if (list.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:var(--gray-500); padding:2rem;">No salary records found.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; color:var(--gray-500); padding:2rem;">No salary records found.</td></tr>`;
     return;
   }
 
@@ -67,10 +67,10 @@ function renderSalary(statusFilter = 'all', search = '') {
 
 function getEligibleTeachers(month, year) {
   const allTeachers = window.TEACHERS || [];
-  const paidTeachers = window.SALARY_RECORDS
+  const paidEmployeeIds = window.SALARY_RECORDS
     .filter(s => s.month === month && s.year === year)
     .map(s => s.employeeId);
-  return allTeachers.filter(t => !paidTeachers.includes(t.id));
+  return allTeachers.filter(t => !paidEmployeeIds.includes(t.employeeId));
 }
 
 // ============================================================
@@ -126,12 +126,12 @@ function showAddSalaryModal() {
   window.openModal('Add Salary', modalHTML, 'Add Salary', async () => {
     const month = document.getElementById('addSalaryMonth').value;
     const year = parseInt(document.getElementById('addSalaryYear').value);
-    const teacherId = document.getElementById('addSalaryEmployee').value;
+    const teacherFirebaseId = document.getElementById('addSalaryEmployee').value;
     const amount = parseFloat(document.getElementById('addSalaryAmount').value);
     const status = document.getElementById('addSalaryStatus').value;
     const paymentMethod = document.getElementById('addSalaryPaymentMethod').value;
 
-    if (!teacherId || !month || !year || isNaN(amount) || amount <= 0) {
+    if (!teacherFirebaseId || !month || !year || isNaN(amount) || amount <= 0) {
       window.showToast('Please fill all fields with valid values', 'error');
       return;
     }
@@ -141,20 +141,20 @@ function showAddSalaryModal() {
       return;
     }
 
-    // Duplicate check
-    const existing = window.SALARY_RECORDS.find(s => s.employeeId === teacherId && s.month === month && s.year === year);
-    if (existing) {
-      window.showToast('This teacher already has a salary record for this month/year.', 'error');
-      return;
-    }
-
-    const teacher = window.TEACHERS.find(t => t.id === teacherId);
+    const teacher = window.TEACHERS.find(t => t.id === teacherFirebaseId);
     if (!teacher) {
       window.showToast('Teacher not found', 'error');
       return;
     }
 
-    const employeeId = teacher.employeeId; // Read from teacher record
+    // Duplicate check using Employee ID
+    const existing = window.SALARY_RECORDS.find(s => s.employeeId === teacher.employeeId && s.month === month && s.year === year);
+    if (existing) {
+      window.showToast('This teacher already has a salary record for this month/year.', 'error');
+      return;
+    }
+
+    const employeeId = teacher.employeeId;
 
     let receiptNo = '';
     if (status === 'paid') {
@@ -162,7 +162,7 @@ function showAddSalaryModal() {
     }
 
     const newSalary = {
-      employeeId,                             // store Employee ID
+      employeeId,
       employeeName: teacher.name,
       role: teacher.role,
       month,
