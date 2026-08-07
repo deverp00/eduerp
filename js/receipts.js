@@ -1,13 +1,13 @@
 // ============================================================
-// RECEIPT MODULE – Professional Fee Receipt with PDF/Print
+// RECEIPT MODULE – Professional Fee Receipt (Reference Design)
 // ============================================================
 
 // School details – update with your actual info
 const SCHOOL_INFO = {
   name: 'Morning Glory English Academy',
-  address: 'Dikhkem Nepali Subba Gaon, West Karbi Anglong 782448 Assam',
+  address: 'Dikhlem Nepali Subba Gaon, West Karbi Anglong, Assam',
+  contact: '+91 0000000001',
   code: 'MGEA/2025/001',
-  phone: '+91 0000000001',
   email: 'info@mgea.edu.in',
   website: 'www.mgea.edu.in'
 };
@@ -58,11 +58,11 @@ function amountToWords(amount) {
 }
 
 // ============================================================
-// GENERATE RECEIPT PDF (for both Fee Records & Payments)
+// GENERATE RECEIPT PDF (exact match to reference design)
 // ============================================================
 
 function downloadReceiptPDF(id) {
-  // Try to find as fee record first, then as payment
+  // Find as fee or payment
   let fee = window.FEE_RECORDS.find(f => f.id === id);
   let payment = null;
   if (!fee) {
@@ -73,32 +73,36 @@ function downloadReceiptPDF(id) {
     }
   }
 
-  // Determine student
   const studentId = fee ? fee.studentId : payment.studentId;
   const student = window.STUDENTS.find(s => s.id === studentId);
   const studentName = student ? student.name : 'Unknown';
-  const studentClass = student ? `${student.class}${student.section}` : 'N/A';
+  const studentClass = student ? student.class : 'N/A';
+  const studentSection = student ? student.section : 'N/A';
+  const rollNo = student ? student.roll : 'N/A';
   const admissionNo = student ? student.admissionNo || 'N/A' : 'N/A';
-  const rollNo = student ? student.roll || 'N/A' : 'N/A';
-  const academicYear = document.getElementById('feeSession')?.value || '2025-26';
-  const receiptNo = fee ? `RCP-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}` : payment.receiptNo;
-  const date = fee ? new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) :
-                     new Date(payment.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  const academicYear = document.getElementById('feeSession')?.value || '2026-27';
+
+  const receiptNo = fee ? `FEE-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}` : payment.receiptNo;
+  const date = fee ? new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' }) :
+                     new Date(payment.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
+
   const amount = fee ? fee.amount : payment.amount;
   const paid = fee ? fee.paid : payment.amount;
   const status = fee ? fee.status : payment.status;
   const method = fee ? 'N/A' : (payment.method || 'N/A');
 
-  // Build fee particulars – for a fee record, one line; for a payment, one line
-  const feeItems = [];
+  // Fee particulars – from fee record or single payment line
+  let feeItems = [];
   if (fee) {
     feeItems.push({ sl: 1, particulars: fee.feeType, period: 'As per fee structure', amount: fee.amount });
   } else {
     feeItems.push({ sl: 1, particulars: 'Payment', period: payment.month || 'N/A', amount: payment.amount });
   }
+  const total = feeItems.reduce((sum, item) => sum + item.amount, 0);
+  const words = amountToWords(total);
 
   // ------------------------------------------------------------
-  // Generate PDF using jsPDF and autoTable
+  // Build PDF using jsPDF (with manual layout to match reference)
   // ------------------------------------------------------------
   const { jsPDF } = window.jspdf;
   if (!jsPDF) {
@@ -108,156 +112,169 @@ function downloadReceiptPDF(id) {
 
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = 210;
-  const margin = 15;
+  const margin = 20;
   let y = 20;
 
-  // --- School Header ---
+  // --- School Header (centered) ---
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(30, 41, 59);
+  doc.setTextColor(0, 0, 0);
   doc.text(SCHOOL_INFO.name, pageWidth / 2, y, { align: 'center' });
-  y += 7;
+  y += 6;
 
-  doc.setFontSize(10);
+  doc.setFontSize(11);
   doc.setFont('helvetica', 'normal');
-  doc.setTextColor(71, 85, 105);
   doc.text(SCHOOL_INFO.address, pageWidth / 2, y, { align: 'center' });
   y += 5;
 
-  doc.setFontSize(8);
-  doc.setTextColor(100, 116, 139);
-  doc.text(
-    `School Code: ${SCHOOL_INFO.code}  |  Phone: ${SCHOOL_INFO.phone}  |  Email: ${SCHOOL_INFO.email}  |  Web: ${SCHOOL_INFO.website}`,
-    pageWidth / 2, y, { align: 'center' }
-  );
+  doc.setFontSize(9);
+  doc.text(`Contact: ${SCHOOL_INFO.contact}`, pageWidth / 2, y, { align: 'center' });
   y += 8;
 
-  doc.setDrawColor(59, 130, 246);
+  // --- Horizontal line ---
+  doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.5);
   doc.line(margin, y, pageWidth - margin, y);
-  y += 6;
+  y += 8;
 
-  // --- Receipt Title ---
-  doc.setFontSize(16);
+  // --- Receipt Title (bordered) ---
+  const title = 'Fee Receipt';
+  const titleWidth = doc.getTextWidth(title) + 12;
+  const titleX = (pageWidth - titleWidth) / 2;
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.3);
+  doc.rect(titleX, y - 3, titleWidth, 8);
+  doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(51, 65, 85);
-  doc.text('FEE RECEIPT', pageWidth / 2, y, { align: 'center' });
-  y += 6;
+  doc.text(title, pageWidth / 2, y + 4, { align: 'center' });
+  y += 12;
 
-  // Receipt No & Date
-  doc.setFontSize(9);
+  // --- Receipt Info (No. & Date) ---
+  doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  doc.setTextColor(100, 116, 139);
   doc.text(`Receipt No: ${receiptNo}`, margin, y);
   doc.text(`Date: ${date}`, pageWidth - margin, y, { align: 'right' });
   y += 8;
 
-  // --- Student Details Table (2 columns) ---
-  const studentRows = [
+  // --- Student Details Table (with borders) ---
+  const studentData = [
     ['Student Name', studentName, 'Class', studentClass],
-    ['Roll No.', rollNo, 'Section', student.section || 'N/A'],
-    ['Admission No.', admissionNo, 'Academic Year', academicYear],
+    ['Roll No.', rollNo, 'Section', studentSection],
+    ['Admission No.', admissionNo, 'Academic Year', academicYear]
   ];
 
-  doc.autoTable({
-    startY: y,
-    head: [],
-    body: studentRows,
-    theme: 'plain',
-    styles: { fontSize: 9, cellPadding: 2 },
-    columnStyles: {
-      0: { cellWidth: 35, fontStyle: 'bold', textColor: [71, 85, 105] },
-      1: { cellWidth: 55 },
-      2: { cellWidth: 35, fontStyle: 'bold', textColor: [71, 85, 105] },
-      3: { cellWidth: 55 }
-    },
-    margin: { left: margin, right: margin },
-    tableWidth: pageWidth - 2 * margin,
-  });
+  // Draw table manually for full border control
+  const col1 = 25;
+  const col2 = 50;
+  const col3 = 25;
+  const col4 = 50;
+  const rowHeight = 7;
+  let tableY = y;
 
-  y = doc.lastAutoTable.finalY + 6;
+  for (let i = 0; i < studentData.length; i++) {
+    const row = studentData[i];
+    const yPos = tableY + i * rowHeight;
+    // Borders
+    doc.rect(margin, yPos, col1, rowHeight);
+    doc.rect(margin + col1, yPos, col2, rowHeight);
+    doc.rect(margin + col1 + col2, yPos, col3, rowHeight);
+    doc.rect(margin + col1 + col2 + col3, yPos, col4, rowHeight);
+    // Text
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text(row[0], margin + 2, yPos + 5);
+    doc.setFont('helvetica', 'normal');
+    doc.text(row[1], margin + col1 + 2, yPos + 5);
+    doc.setFont('helvetica', 'bold');
+    doc.text(row[2], margin + col1 + col2 + 2, yPos + 5);
+    doc.setFont('helvetica', 'normal');
+    doc.text(row[3], margin + col1 + col2 + col3 + 2, yPos + 5);
+  }
+  y = tableY + studentData.length * rowHeight + 6;
 
-  // --- Fee Particulars Table ---
-  const feeHeaders = [['Sl. No.', 'Fee Particulars', 'Month / Period', 'Amount (₹)']];
-  const feeRows = feeItems.map(item => [item.sl, item.particulars, item.period, item.amount.toLocaleString()]);
+  // --- Fee Table ---
+  const feeHeaders = ['Sl. No.', 'Fee Particulars', 'Month / Period', 'Amount (₹)'];
+  const feeRows = feeItems.map(item => [item.sl, item.particulars, item.period, item.amount.toFixed(2)]);
 
-  doc.autoTable({
-    startY: y,
-    head: feeHeaders,
-    body: feeRows,
-    theme: 'striped',
-    headStyles: { fillColor: [59, 130, 246], textColor: 255, fontSize: 9, fontStyle: 'bold' },
-    styles: { fontSize: 9, cellPadding: 2 },
-    columnStyles: {
-      0: { cellWidth: 20, halign: 'center' },
-      1: { cellWidth: 70 },
-      2: { cellWidth: 50 },
-      3: { cellWidth: 40, halign: 'right' }
-    },
-    margin: { left: margin, right: margin },
-    tableWidth: pageWidth - 2 * margin,
-  });
-
-  y = doc.lastAutoTable.finalY + 6;
-
-  // --- Total & Amount in Words ---
-  const total = feeItems.reduce((sum, item) => sum + item.amount, 0);
-  doc.setFontSize(10);
+  // Draw table
+  const colWidths = [18, 70, 40, 40];
+  let rowY = y;
+  // Header
+  doc.setFillColor(243, 243, 243);
+  doc.rect(margin, rowY, colWidths[0], 8, 'F');
+  doc.rect(margin + colWidths[0], rowY, colWidths[1], 8, 'F');
+  doc.rect(margin + colWidths[0] + colWidths[1], rowY, colWidths[2], 8, 'F');
+  doc.rect(margin + colWidths[0] + colWidths[1] + colWidths[2], rowY, colWidths[3], 8, 'F');
+  doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(30, 41, 59);
-  doc.text(`Total: ₹${total.toLocaleString()}`, pageWidth - margin, y, { align: 'right' });
-  y += 6;
+  doc.text('Sl. No.', margin + 2, rowY + 5);
+  doc.text('Fee Particulars', margin + colWidths[0] + 2, rowY + 5);
+  doc.text('Month / Period', margin + colWidths[0] + colWidths[1] + 2, rowY + 5);
+  doc.text('Amount (₹)', margin + colWidths[0] + colWidths[1] + colWidths[2] + 2, rowY + 5, { align: 'right' });
+  rowY += 8;
 
+  // Data rows
+  feeRows.forEach((row, idx) => {
+    const isLast = idx === feeRows.length - 1;
+    doc.setFont('helvetica', 'normal');
+    // Draw borders (all sides)
+    doc.rect(margin, rowY, colWidths[0], 8);
+    doc.rect(margin + colWidths[0], rowY, colWidths[1], 8);
+    doc.rect(margin + colWidths[0] + colWidths[1], rowY, colWidths[2], 8);
+    doc.rect(margin + colWidths[0] + colWidths[1] + colWidths[2], rowY, colWidths[3], 8);
+    // Text
+    doc.text(String(row[0]), margin + 2, rowY + 5);
+    doc.text(row[1], margin + colWidths[0] + 2, rowY + 5);
+    doc.text(row[2], margin + colWidths[0] + colWidths[1] + 2, rowY + 5);
+    doc.text(row[3], margin + colWidths[0] + colWidths[1] + colWidths[2] + 2, rowY + 5, { align: 'right' });
+    rowY += 8;
+  });
+
+  // Total row (bold)
+  const totalRowY = rowY;
+  doc.setFont('helvetica', 'bold');
+  doc.rect(margin, totalRowY, colWidths[0], 8);
+  doc.rect(margin + colWidths[0], totalRowY, colWidths[1], 8);
+  doc.rect(margin + colWidths[0] + colWidths[1], totalRowY, colWidths[2], 8);
+  doc.rect(margin + colWidths[0] + colWidths[1] + colWidths[2], totalRowY, colWidths[3], 8);
+  doc.text('Total Paid', margin + colWidths[0] + colWidths[1] + 2, totalRowY + 5);
+  doc.text(`₹ ${total.toFixed(2)}`, margin + colWidths[0] + colWidths[1] + colWidths[2] + 2, totalRowY + 5, { align: 'right' });
+  y = totalRowY + 8 + 6;
+
+  // --- Amount in Words (bordered) ---
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.3);
+  const wordsX = margin;
+  const wordsY = y;
+  const wordsWidth = pageWidth - 2 * margin;
+  doc.rect(wordsX, wordsY, wordsWidth, 8);
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
-  doc.setTextColor(71, 85, 105);
-  const words = amountToWords(total);
-  doc.text(`Amount in Words: ${words}`, margin, y);
-  y += 8;
+  doc.text(`Amount in Words: ${words}`, wordsX + 4, wordsY + 5);
+  y += 12;
 
   // --- Payment Details ---
-  const paymentRows = [
-    ['Payment Method:', method, 'Payment Status:', status.toUpperCase()],
-    ['Remarks:', 'System generated receipt', '', ''],
-  ];
-
-  doc.autoTable({
-    startY: y,
-    head: [],
-    body: paymentRows,
-    theme: 'plain',
-    styles: { fontSize: 9, cellPadding: 2 },
-    columnStyles: {
-      0: { cellWidth: 30, fontStyle: 'bold', textColor: [71, 85, 105] },
-      1: { cellWidth: 50 },
-      2: { cellWidth: 30, fontStyle: 'bold', textColor: [71, 85, 105] },
-      3: { cellWidth: 60 }
-    },
-    margin: { left: margin, right: margin },
-    tableWidth: pageWidth - 2 * margin,
-  });
-
-  y = doc.lastAutoTable.finalY + 8;
-
-  // --- Footer ---
-  doc.setDrawColor(203, 213, 225);
-  doc.setLineWidth(0.3);
-  doc.line(margin, y, pageWidth - margin, y);
-  y += 5;
-
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'italic');
-  doc.setTextColor(148, 163, 184);
-  doc.text('This is a computer-generated receipt. No signature required.', pageWidth / 2, y, { align: 'center' });
-  y += 4;
-  doc.text('Thank you for your payment.', pageWidth / 2, y, { align: 'center' });
-
-  // --- Signature (right side) ---
+  doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
-  doc.setTextColor(71, 85, 105);
-  const signX = pageWidth - margin - 30;
-  doc.line(signX, y + 8, signX + 35, y + 8);
-  doc.text('Authorized Signatory', signX + 5, y + 14);
+  doc.text(`Payment Method: ${method}`, margin, y);
+  y += 5;
+  doc.text(`Payment Status: ${status.toUpperCase()}`, margin, y);
+  y += 5;
+  doc.text('Remarks: System generated receipt', margin, y);
+  y += 12;
+
+  // --- Footer (Thank you + Signature) ---
+  const footerY = y;
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Thank you.', margin, footerY);
+  doc.setFont('helvetica', 'normal');
+  doc.text('This is a computer-generated receipt.', margin, footerY + 5);
+
+  // Signature on the right
+  const signX = pageWidth - margin - 40;
+  doc.line(signX, footerY + 2, signX + 35, footerY + 2);
+  doc.text('Authorized Signatory', signX + 2, footerY + 8);
 
   // --- Save PDF ---
   const fileName = `Receipt_${studentName.replace(/\s/g, '_')}_${new Date().toISOString().slice(0,10)}.pdf`;
@@ -266,7 +283,7 @@ function downloadReceiptPDF(id) {
 }
 
 // ============================================================
-// SHOW RECEIPT IN MODAL (consistent design)
+// SHOW RECEIPT IN MODAL (matching the reference HTML)
 // ============================================================
 
 function showReceipt(id) {
@@ -283,14 +300,17 @@ function showReceipt(id) {
 
   const studentId = fee ? fee.studentId : payment.studentId;
   const student = window.STUDENTS.find(s => s.id === studentId);
-  const name = student ? student.name : 'Unknown';
-  const studentClass = student ? `${student.class}${student.section}` : 'N/A';
+  const studentName = student ? student.name : 'Unknown';
+  const studentClass = student ? student.class : 'N/A';
+  const studentSection = student ? student.section : 'N/A';
+  const rollNo = student ? student.roll : 'N/A';
   const admissionNo = student ? student.admissionNo || 'N/A' : 'N/A';
-  const rollNo = student ? student.roll || 'N/A' : 'N/A';
-  const academicYear = document.getElementById('feeSession')?.value || '2025-26';
-  const receiptNo = fee ? `RCP-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}` : payment.receiptNo;
-  const date = fee ? new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) :
-                     new Date(payment.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  const academicYear = document.getElementById('feeSession')?.value || '2026-27';
+
+  const receiptNo = fee ? `FEE-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}` : payment.receiptNo;
+  const date = fee ? new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' }) :
+                     new Date(payment.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
+
   const amount = fee ? fee.amount : payment.amount;
   const status = fee ? fee.status : payment.status;
   const method = fee ? 'N/A' : (payment.method || 'N/A');
@@ -309,82 +329,206 @@ function showReceipt(id) {
       <td>${item.sl}</td>
       <td>${item.particulars}</td>
       <td>${item.period}</td>
-      <td style="text-align:right;">₹${item.amount.toLocaleString()}</td>
+      <td class="amount">₹ ${item.amount.toFixed(2)}</td>
     </tr>
   `).join('');
 
+  // Modal HTML – exactly matches the reference design
   const receiptHTML = `
-    <div class="receipt-wrapper" id="receiptContent">
+    <style>
+      .receipt-modal {
+        font-family: Arial, Helvetica, sans-serif;
+        color: #222;
+        max-width: 800px;
+        margin: auto;
+        background: #fff;
+        border: 1px solid #222;
+        padding: 28px;
+      }
+      .receipt-modal .school-header {
+        text-align: center;
+        border-bottom: 2px solid #222;
+        padding-bottom: 15px;
+      }
+      .receipt-modal .school-header h1 {
+        margin: 0;
+        font-size: 24px;
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+      .receipt-modal .school-header p {
+        margin: 5px 0 0;
+        font-size: 13px;
+      }
+      .receipt-modal .receipt-title {
+        text-align: center;
+        margin: 18px 0;
+      }
+      .receipt-modal .receipt-title h2 {
+        display: inline-block;
+        margin: 0;
+        padding: 5px 18px;
+        border: 1px solid #222;
+        font-size: 16px;
+        text-transform: uppercase;
+      }
+      .receipt-modal .receipt-info {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 18px;
+        font-size: 13px;
+      }
+      .receipt-modal .student-details {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 18px;
+      }
+      .receipt-modal .student-details td {
+        border: 1px solid #555;
+        padding: 8px 10px;
+        font-size: 13px;
+      }
+      .receipt-modal .student-details .label {
+        font-weight: 600;
+        width: 17%;
+        background: #f7f7f7;
+      }
+      .receipt-modal .fee-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 5px;
+      }
+      .receipt-modal .fee-table th,
+      .receipt-modal .fee-table td {
+        border: 1px solid #333;
+        padding: 9px 10px;
+        font-size: 13px;
+      }
+      .receipt-modal .fee-table th {
+        background: #f3f3f3;
+        font-weight: 700;
+        text-align: center;
+      }
+      .receipt-modal .fee-table td:first-child {
+        text-align: center;
+        width: 8%;
+      }
+      .receipt-modal .amount {
+        text-align: right;
+        width: 20%;
+      }
+      .receipt-modal .total-row td {
+        font-weight: 700;
+        font-size: 14px;
+      }
+      .receipt-modal .amount-words {
+        margin-top: 15px;
+        border: 1px solid #555;
+        padding: 10px;
+        font-size: 13px;
+      }
+      .receipt-modal .payment-details {
+        margin-top: 15px;
+        font-size: 13px;
+      }
+      .receipt-modal .payment-details p {
+        margin: 5px 0;
+      }
+      .receipt-modal .footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: end;
+        margin-top: 55px;
+        font-size: 12px;
+      }
+      .receipt-modal .signature {
+        text-align: center;
+        min-width: 150px;
+      }
+      .receipt-modal .signature-line {
+        border-top: 1px solid #222;
+        margin-bottom: 5px;
+      }
+      @media (max-width: 700px) {
+        .receipt-modal { padding: 15px; }
+        .receipt-modal .receipt-info { flex-direction: column; gap: 5px; }
+        .receipt-modal .school-header h1 { font-size: 19px; }
+      }
+    </style>
+    <div class="receipt-modal">
       <div class="school-header">
-        <h2 class="school-name">${SCHOOL_INFO.name}</h2>
-        <p class="school-address">${SCHOOL_INFO.address}</p>
-        <p class="school-contact">
-          <strong>School Code:</strong> ${SCHOOL_INFO.code} &nbsp;|&nbsp;
-          <strong>Phone:</strong> ${SCHOOL_INFO.phone} &nbsp;|&nbsp;
-          <strong>Email:</strong> ${SCHOOL_INFO.email} &nbsp;|&nbsp;
-          <strong>Web:</strong> ${SCHOOL_INFO.website}
-        </p>
+        <h1>${SCHOOL_INFO.name}</h1>
+        <p>${SCHOOL_INFO.address}</p>
+        <p>Contact: ${SCHOOL_INFO.contact}</p>
       </div>
-      <div style="text-align:center; margin:6px 0;">
-        <h3 style="margin:0; font-size:1.2rem; color:#334155;">FEE RECEIPT</h3>
+
+      <div class="receipt-title">
+        <h2>Fee Receipt</h2>
       </div>
-      <div style="display:flex; justify-content:space-between; font-size:0.85rem; margin-bottom:8px;">
-        <span><strong>Receipt No:</strong> ${receiptNo}</span>
-        <span><strong>Date:</strong> ${date}</span>
+
+      <div class="receipt-info">
+        <div><strong>Receipt No:</strong> ${receiptNo}</div>
+        <div><strong>Date:</strong> ${date}</div>
       </div>
-      <table style="width:100%; font-size:0.85rem; border-collapse:collapse; margin-bottom:8px;">
+
+      <table class="student-details">
         <tr>
-          <td style="padding:2px 4px; font-weight:bold; color:#475569; width:25%;">Student Name</td>
-          <td style="padding:2px 4px; width:25%;">${name}</td>
-          <td style="padding:2px 4px; font-weight:bold; color:#475569; width:25%;">Class</td>
-          <td style="padding:2px 4px; width:25%;">${studentClass}</td>
+          <td class="label">Student Name</td>
+          <td>${studentName}</td>
+          <td class="label">Class</td>
+          <td>${studentClass}</td>
         </tr>
         <tr>
-          <td style="padding:2px 4px; font-weight:bold; color:#475569;">Roll No.</td>
-          <td style="padding:2px 4px;">${rollNo}</td>
-          <td style="padding:2px 4px; font-weight:bold; color:#475569;">Section</td>
-          <td style="padding:2px 4px;">${student ? student.section || 'N/A' : 'N/A'}</td>
+          <td class="label">Roll No.</td>
+          <td>${rollNo}</td>
+          <td class="label">Section</td>
+          <td>${studentSection}</td>
         </tr>
         <tr>
-          <td style="padding:2px 4px; font-weight:bold; color:#475569;">Admission No.</td>
-          <td style="padding:2px 4px;">${admissionNo}</td>
-          <td style="padding:2px 4px; font-weight:bold; color:#475569;">Academic Year</td>
-          <td style="padding:2px 4px;">${academicYear}</td>
+          <td class="label">Admission No.</td>
+          <td>${admissionNo}</td>
+          <td class="label">Academic Year</td>
+          <td>${academicYear}</td>
         </tr>
       </table>
-      <table style="width:100%; font-size:0.85rem; border-collapse:collapse; margin-bottom:8px; border:1px solid #e2e8f0;">
-        <thead style="background:#3b82f6; color:white;">
+
+      <table class="fee-table">
+        <thead>
           <tr>
-            <th style="padding:4px 6px; text-align:center;">Sl. No.</th>
-            <th style="padding:4px 6px; text-align:left;">Fee Particulars</th>
-            <th style="padding:4px 6px; text-align:left;">Month / Period</th>
-            <th style="padding:4px 6px; text-align:right;">Amount (₹)</th>
+            <th>Sl. No.</th>
+            <th>Fee Particulars</th>
+            <th>Month / Period</th>
+            <th class="amount">Amount (₹)</th>
           </tr>
         </thead>
         <tbody>
           ${rowsHTML}
-          <tr style="font-weight:bold; background:#f1f5f9;">
-            <td colspan="3" style="padding:4px 6px; text-align:right;">Total</td>
-            <td style="padding:4px 6px; text-align:right;">₹${total.toLocaleString()}</td>
+          <tr class="total-row">
+            <td colspan="3" style="text-align:right;">Total Paid</td>
+            <td class="amount">₹ ${total.toFixed(2)}</td>
           </tr>
         </tbody>
       </table>
-      <div style="font-size:0.85rem; margin:6px 0;">
+
+      <div class="amount-words">
         <strong>Amount in Words:</strong> ${words}
       </div>
-      <div style="display:flex; justify-content:space-between; font-size:0.85rem; margin:6px 0;">
+
+      <div class="payment-details">
+        <p><strong>Payment Method:</strong> ${method}</p>
+        <p><strong>Payment Status:</strong> ${status.toUpperCase()}</p>
+        <p><strong>Remarks:</strong> System generated receipt</p>
+      </div>
+
+      <div class="footer">
         <div>
-          <strong>Payment Method:</strong> ${method}<br>
-          <strong>Payment Status:</strong> <span class="status-badge status-${status}">${status}</span><br>
-          <strong>Remarks:</strong> System generated receipt
+          <strong>Thank you.</strong><br>
+          This is a computer-generated receipt.
         </div>
-        <div style="text-align:right;">
-          <div style="border-top:1px solid #475569; width:120px; margin:16px auto 0;"></div>
+        <div class="signature">
+          <div class="signature-line"></div>
           Authorized Signatory
         </div>
-      </div>
-      <div class="receipt-footer">
-        This is a computer-generated receipt. No signature required.<br>Thank you for your payment.
       </div>
     </div>
   `;
@@ -411,11 +555,10 @@ function showReceipt(id) {
 }
 
 // ============================================================
-// VIEW / REPRINT / PRINT LAST RECEIPT (for Payment History)
+// VIEW / REPRINT / PRINT LAST RECEIPT
 // ============================================================
 
 function viewReceipt(id) {
-  // Try payment first, then fee
   let payment = window.PAYMENTS.find(p => p.id === id);
   if (payment) {
     showReceipt(id);
