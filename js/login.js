@@ -2,14 +2,13 @@
 // LOGIN MODULE – Admin Authentication Overlay
 // ============================================================
 
-import { loginAdmin, getCurrentUser } from './firebase.js';
+import { loginAdmin, getCurrentUser, sendPasswordReset } from './firebase.js';
 
 // ============================================================
 // CREATE LOGIN OVERLAY
 // ============================================================
 
 function createLoginOverlay() {
-  // Check if overlay already exists
   if (document.getElementById('loginOverlay')) return;
 
   const overlay = document.createElement('div');
@@ -55,9 +54,13 @@ function createLoginOverlay() {
       <input type="email" id="loginEmail" placeholder="admin@school.com" style="width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.875rem; transition: border-color 300ms;" />
     </div>
 
-    <div class="form-group" style="margin-bottom: 1.5rem;">
+    <div class="form-group" style="margin-bottom: 0.5rem;">
       <label style="display: block; font-weight: 500; font-size: 0.875rem; color: #475569; margin-bottom: 0.25rem;">Password</label>
       <input type="password" id="loginPassword" placeholder="••••••••" style="width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.875rem; transition: border-color 300ms;" />
+    </div>
+
+    <div style="text-align: right; margin-bottom: 1rem;">
+      <button id="forgotPasswordBtn" style="background: none; border: none; color: #3b82f6; font-size: 0.8rem; cursor: pointer; text-decoration: underline;">Forgot Password?</button>
     </div>
 
     <button id="loginBtn" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 0.6rem; font-size: 1rem;">
@@ -86,6 +89,9 @@ function createLoginOverlay() {
 
   // Login button
   document.getElementById('loginBtn').addEventListener('click', handleLogin);
+
+  // Forgot password
+  document.getElementById('forgotPasswordBtn').addEventListener('click', handleForgotPassword);
 }
 
 // ============================================================
@@ -100,7 +106,6 @@ async function handleLogin() {
   const btnText = document.getElementById('loginBtnText');
   const btnSpinner = document.getElementById('loginBtnSpinner');
 
-  // Reset error
   errorEl.style.display = 'none';
   errorEl.textContent = '';
 
@@ -110,14 +115,12 @@ async function handleLogin() {
     return;
   }
 
-  // Show loading state
   btn.disabled = true;
   btnText.style.display = 'none';
   btnSpinner.style.display = 'inline-block';
 
   try {
     await loginAdmin(email, password);
-    // Login successful – hide overlay, load data, navigate
     const overlay = document.getElementById('loginOverlay');
     if (overlay) overlay.remove();
     window.showToast('Login successful!', 'success');
@@ -139,24 +142,52 @@ async function handleLogin() {
 }
 
 // ============================================================
+// HANDLE FORGOT PASSWORD
+// ============================================================
+
+async function handleForgotPassword() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const errorEl = document.getElementById('loginError');
+
+  errorEl.style.display = 'none';
+  errorEl.textContent = '';
+
+  if (!email) {
+    errorEl.textContent = 'Please enter your email address.';
+    errorEl.style.display = 'block';
+    return;
+  }
+
+  try {
+    await sendPasswordReset(email);
+    window.showToast('Password reset email sent. Check your inbox.', 'success');
+    document.getElementById('loginEmail').value = '';
+    document.getElementById('loginPassword').value = '';
+  } catch (error) {
+    console.error('Password reset error:', error);
+    let message = 'Unable to send reset email. Please try again.';
+    if (error.code === 'auth/user-not-found') message = 'No account found with this email.';
+    errorEl.textContent = message;
+    errorEl.style.display = 'block';
+  }
+}
+
+// ============================================================
 // CHECK AUTH ON START
 // ============================================================
 
 document.addEventListener('DOMContentLoaded', async () => {
-  // Wait a moment for app.js to initialize global functions
   await new Promise(resolve => setTimeout(resolve, 200));
-
   const user = await getCurrentUser();
   if (!user) {
     createLoginOverlay();
   } else {
-    // Already logged in – data will load via app.js
     console.log('Already authenticated as:', user.email);
   }
 });
 
 // ============================================================
-// EXTRA STYLES FOR LOGIN (injected dynamically)
+// EXTRA STYLES FOR LOGIN
 // ============================================================
 
 const style = document.createElement('style');
