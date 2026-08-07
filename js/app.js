@@ -21,7 +21,6 @@ const toastContainer = document.getElementById('toastContainer');
 const loadingOverlay = document.getElementById('loadingOverlay');
 
 let currentPage = 'dashboard';
-let modalCallback = null;
 
 // ============================================================
 // TOAST & LOADING
@@ -51,13 +50,13 @@ function openModal(title, bodyHTML, confirmText = 'Confirm', callback) {
   modalTitle.textContent = title;
   modalBody.innerHTML = bodyHTML;
   modalConfirm.textContent = confirmText;
-  modalCallback = callback;
+  window.modalCallback = callback; // <-- store callback globally
   modalOverlay.classList.add('active');
 }
 
 function closeModal() {
   modalOverlay.classList.remove('active');
-  modalCallback = null;
+  window.modalCallback = null;
 }
 
 // ============================================================
@@ -139,7 +138,7 @@ modalOverlay.addEventListener('click', (e) => {
   if (e.target === modalOverlay) closeModal();
 });
 modalConfirm.addEventListener('click', () => {
-  if (modalCallback) modalCallback();
+  if (window.modalCallback) window.modalCallback();
 });
 
 // ============================================================
@@ -207,4 +206,4 @@ window.openModal = openModal;
 window.closeModal = closeModal;
 window.navigateTo = navigateTo;
 window.loadAllData = loadAllData;
-window.modalCallback = modalCallback;
+window.modalCallback = null; // initialise
