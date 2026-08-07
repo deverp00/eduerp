@@ -2,6 +2,10 @@
 // EXPORT MODULE – PDF, Excel, CSV
 // ============================================================
 
+// ============================================================
+// GET FILTERED DATA FOR EACH MODULE
+// ============================================================
+
 function getFilteredData(module) {
   switch (module) {
     case 'students': {
@@ -34,6 +38,7 @@ function getFilteredData(module) {
       const statusFilter = document.getElementById('feeStatusFilter')?.value || 'all';
       const search = document.getElementById('feeUniversalSearch')?.value || '';
       const classFilter = document.getElementById('feeClassFilter')?.value || 'all';
+      const sectionFilter = document.getElementById('feeSectionFilter')?.value || 'all';
       let data = window.FEE_RECORDS || [];
       if (statusFilter !== 'all') {
         data = data.filter(f => f.status === statusFilter);
@@ -57,6 +62,12 @@ function getFilteredData(module) {
           return s && s.class === classNum;
         });
       }
+      if (sectionFilter !== 'all') {
+        data = data.filter(f => {
+          const s = window.STUDENTS.find(st => st.id === f.studentId);
+          return s && s.section === sectionFilter;
+        });
+      }
       return data;
     }
     case 'salary': {
@@ -76,6 +87,10 @@ function getFilteredData(module) {
       return [];
   }
 }
+
+// ============================================================
+// BUILD HEADERS AND ROWS
+// ============================================================
 
 function buildExportData(module, data) {
   let headers = [];
@@ -115,6 +130,10 @@ function buildExportData(module, data) {
   return { title, headers, rows };
 }
 
+// ============================================================
+// EXPORT TO PDF
+// ============================================================
+
 function exportToPDF(module) {
   const data = getFilteredData(module);
   if (data.length === 0) {
@@ -132,6 +151,8 @@ function exportToPDF(module) {
     window.showToast('jsPDF library not loaded', 'error');
     return;
   }
+
+  window.showToast('Generating PDF...', 'info');
 
   const doc = new jsPDF('landscape', 'mm', 'a4');
   doc.setFontSize(18);
@@ -155,6 +176,10 @@ function exportToPDF(module) {
   window.showToast('PDF exported successfully', 'success');
 }
 
+// ============================================================
+// EXPORT TO EXCEL
+// ============================================================
+
 function exportToExcel(module) {
   const data = getFilteredData(module);
   if (data.length === 0) {
@@ -174,6 +199,8 @@ function exportToExcel(module) {
     return;
   }
 
+  window.showToast('Generating Excel...', 'info');
+
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet(fullData);
   XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
@@ -181,6 +208,10 @@ function exportToExcel(module) {
   XLSX.writeFile(wb, fileName);
   window.showToast('Excel exported successfully', 'success');
 }
+
+// ============================================================
+// EXPORT TO CSV
+// ============================================================
 
 function exportToCSV(module) {
   const data = getFilteredData(module);
@@ -194,11 +225,15 @@ function exportToCSV(module) {
 
   const { headers, rows } = exportData;
 
+  window.showToast('Generating CSV...', 'info');
+
+  // Build CSV content
   let csv = headers.join(',') + '\n';
   rows.forEach(row => {
     csv += row.join(',') + '\n';
   });
 
+  // Create download link
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
@@ -213,47 +248,50 @@ function exportToCSV(module) {
 // ============================================================
 
 document.addEventListener('DOMContentLoaded', function() {
-  // Students
+  // Students export buttons
   document.querySelectorAll('[data-module="students"]').forEach(btn => {
     btn.addEventListener('click', function() {
       const type = this.dataset.export;
       if (type === 'pdf') exportToPDF('students');
       else if (type === 'excel') exportToExcel('students');
+      else if (type === 'csv') exportToCSV('students');
     });
   });
 
-  // Teachers
+  // Teachers export buttons
   document.querySelectorAll('[data-module="teachers"]').forEach(btn => {
     btn.addEventListener('click', function() {
       const type = this.dataset.export;
       if (type === 'pdf') exportToPDF('teachers');
       else if (type === 'excel') exportToExcel('teachers');
+      else if (type === 'csv') exportToCSV('teachers');
     });
   });
 
-  // Fees
-  const feePdf = document.getElementById('feeExportPdf');
-  if (feePdf) feePdf.addEventListener('click', () => exportToPDF('fees'));
-  const feeExcel = document.getElementById('feeExportExcel');
-  if (feeExcel) feeExcel.addEventListener('click', () => exportToExcel('fees'));
-  const feeCsv = document.getElementById('feeExportCsv');
-  if (feeCsv) feeCsv.addEventListener('click', () => exportToCSV('fees'));
+  // Fees export buttons
+  const feePdfBtn = document.getElementById('feeExportPdf');
+  if (feePdfBtn) feePdfBtn.addEventListener('click', () => exportToPDF('fees'));
+  const feeExcelBtn = document.getElementById('feeExportExcel');
+  if (feeExcelBtn) feeExcelBtn.addEventListener('click', () => exportToExcel('fees'));
+  const feeCsvBtn = document.getElementById('feeExportCsv');
+  if (feeCsvBtn) feeCsvBtn.addEventListener('click', () => exportToCSV('fees'));
 
-  // Salary
+  // Salary export buttons
   document.querySelectorAll('[data-module="salary"]').forEach(btn => {
     btn.addEventListener('click', function() {
       const type = this.dataset.export;
       if (type === 'pdf') exportToPDF('salary');
       else if (type === 'excel') exportToExcel('salary');
+      else if (type === 'csv') exportToCSV('salary');
     });
   });
 
-  // Analytics (placeholders)
-  const anPdf = document.getElementById('exportAnalyticsPdf');
-  if (anPdf) anPdf.addEventListener('click', () => window.showToast('Analytics PDF export coming soon', 'info'));
-  const anExcel = document.getElementById('exportAnalyticsExcel');
-  if (anExcel) anExcel.addEventListener('click', () => window.showToast('Analytics Excel export coming soon', 'info'));
+  // Analytics exports are handled in analytics.js
 });
+
+// ============================================================
+// EXPOSE GLOBALLY
+// ============================================================
 
 window.exportToPDF = exportToPDF;
 window.exportToExcel = exportToExcel;
