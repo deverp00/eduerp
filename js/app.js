@@ -22,6 +22,8 @@ const modalCancel = document.getElementById('modalCancel');
 const modalConfirm = document.getElementById('modalConfirm');
 const toastContainer = document.getElementById('toastContainer');
 const loadingOverlay = document.getElementById('loadingOverlay');
+const notificationBtn = document.getElementById('notificationBtn');
+const badgeDot = document.querySelector('.badge-dot');
 
 let currentPage = 'dashboard';
 let modalCallback = null;
@@ -87,17 +89,15 @@ function navigateTo(page) {
     salary: 'Salary',
     analytics: 'Reports & Analytics',
   };
-  pageTitle.textContent = titles[page] || 'Dashboard';
+  const title = titles[page] || 'Dashboard';
+  pageTitle.textContent = title;
+  document.title = `SchoolERP | ${title}`; // NEW: update browser tab title
 
-  // Call the module's render function (globally exposed)
   switch (page) {
     case 'dashboard': if (window.renderDashboard) window.renderDashboard(); break;
     case 'students': if (window.renderStudents) window.renderStudents(); break;
     case 'teachers': if (window.renderStaff) window.renderStaff(); break;
-    case 'fees': 
-      if (window.renderFees) window.renderFees();
-      if (window.initFeeModule) window.initFeeModule();
-      break;
+    case 'fees': if (window.renderFees) { window.renderFees(); if (window.initFeeModule) window.initFeeModule(); } break;
     case 'salary': if (window.renderSalary) window.renderSalary(); break;
     case 'analytics': if (window.renderAnalytics) window.renderAnalytics(); break;
     default: break;
@@ -150,6 +150,21 @@ modalConfirm.addEventListener('click', () => {
 });
 
 // ============================================================
+// NOTIFICATION (placeholder)
+// ============================================================
+
+if (notificationBtn) {
+  notificationBtn.addEventListener('click', () => {
+    showToast('No new notifications', 'info');
+  });
+}
+
+// Hide badge initially (no notifications)
+if (badgeDot) {
+  badgeDot.style.display = 'none';
+}
+
+// ============================================================
 // GLOBAL DATA STORES
 // ============================================================
 
@@ -193,7 +208,6 @@ async function loadAllData() {
 document.addEventListener('DOMContentLoaded', async () => {
   showLoading(true);
 
-  // Check if user is authenticated (optional – for security rules)
   const user = await getCurrentUser();
   if (!user) {
     console.warn('No authenticated user. Firebase rules may block reads/writes.');
@@ -208,7 +222,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // ============================================================
-// EXPOSE GLOBAL FUNCTIONS FOR OTHER MODULES
+// EXPOSE GLOBAL FUNCTIONS
 // ============================================================
 
 window.showToast = showToast;
