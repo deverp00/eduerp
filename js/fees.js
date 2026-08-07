@@ -3,6 +3,7 @@
 // ============================================================
 
 import { createData, updateData, deleteData } from './firebase.js';
+import { showReceipt } from './receipt.js';  // Import receipt function
 
 // ============================================================
 // HELPERS – Monthly Fee Logic
@@ -112,7 +113,7 @@ function renderFees(statusFilter = 'all', search = '', studentId = null, classFi
                   ${isCollectActive ? '' : 'disabled'}>
             Collect
           </button>
-          <button class="btn-receipt" onclick="window.viewReceipt('${f.id}')" style="white-space:nowrap;">Receipt</button>
+          <button class="btn-receipt" onclick="window.showReceipt('${f.id}')" style="white-space:nowrap;">Receipt</button>
           <button class="btn-delete" onclick="window.deleteFeeRecord('${f.id}')" style="white-space:nowrap;">Delete</button>
         </div>
       </td>
@@ -411,7 +412,7 @@ function showPaymentHistory(studentId) {
       <td>${p.method}</td>
       <td><span class="status-badge status-${p.status}">${p.status}</span></td>
       <td>
-        <button class="btn-edit" onclick="window.viewReceipt('${p.id}')">View</button>
+        <button class="btn-edit" onclick="window.showReceipt('${p.id}')">View</button>
         <button class="btn-receipt" onclick="window.reprintReceipt('${p.id}')">Reprint</button>
         <button class="btn-edit" onclick="window.downloadReceiptPDF('${p.id}')">PDF</button>
       </td>
@@ -429,59 +430,11 @@ function showPaymentHistory(studentId) {
 }
 
 // ============================================================
-// BULK COLLECT
+// REMOVED: Bulk Collect functions and button reference
 // ============================================================
 
-function openBulkCollectModal() {
-  window.openModal('Bulk Fee Collection', `
-    <div class="form-group"><label>Class</label>
-      <select id="bulkClass" style="width:100%; padding:0.5rem; border:1px solid var(--gray-200); border-radius:var(--radius);">
-        ${Array.from({length:12}, (_,i) => i+1).map(c => `<option value="${c}">Class ${c}</option>`).join('')}
-      </select>
-    </div>
-    <div class="form-group"><label>Section</label>
-      <select id="bulkSection" style="width:100%; padding:0.5rem; border:1px solid var(--gray-200); border-radius:var(--radius);">
-        <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="NA">NA</option>
-      </select>
-    </div>
-    <div class="form-group"><label>Fee Type</label><input type="text" id="bulkFeeType" placeholder="e.g., Tuition" style="width:100%; padding:0.5rem; border:1px solid var(--gray-200); border-radius:var(--radius);" /></div>
-    <div class="form-group"><label>Amount (₹)</label><input type="number" id="bulkAmount" placeholder="5000" style="width:100%; padding:0.5rem; border:1px solid var(--gray-200); border-radius:var(--radius);" /></div>
-    <button class="btn btn-primary" onclick="window.processBulkCollection()">Collect for All</button>
-  `, 'Cancel', () => { window.closeModal(); });
-}
-
-async function processBulkCollection() {
-  const classVal = parseInt(document.getElementById('bulkClass').value);
-  const section = document.getElementById('bulkSection').value;
-  const feeType = document.getElementById('bulkFeeType').value.trim();
-  const amount = parseFloat(document.getElementById('bulkAmount').value);
-  if (!feeType || isNaN(amount) || amount <= 0) {
-    window.showToast('Please fill all fields correctly', 'error');
-    return;
-  }
-  const students = window.STUDENTS.filter(s => s.class === classVal && s.section === section);
-  let count = 0;
-  for (const s of students) {
-    const newFee = {
-      studentId: s.id,
-      feeType: feeType,
-      amount: amount,
-      paid: 0,
-      pending: amount,
-      status: 'pending'
-    };
-    const result = await createData('feeRecords', newFee);
-    window.FEE_RECORDS.push(result);
-    count++;
-  }
-  window.showToast(`Fee records added for ${count} students`, 'success');
-  window.closeModal();
-  renderFees();
-  renderFeeAnalytics();
-}
-
 // ============================================================
-// INIT FEE MODULE – Auto‑apply filters
+// INIT FEE MODULE – Auto‑apply filters (no Bulk Collect)
 // ============================================================
 
 function initFeeModule() {
@@ -500,8 +453,7 @@ function initFeeModule() {
     }
   });
 
-  const bulkBtn = document.getElementById('feeCollectBulkBtn');
-  if (bulkBtn) bulkBtn.addEventListener('click', openBulkCollectModal);
+  // Bulk Collect button removed – no event binding.
 
   const addBtn = document.getElementById('addFeeBtn');
   if (addBtn) addBtn.addEventListener('click', showAddFeeModal);
@@ -654,13 +606,40 @@ async function editFee(id) {
 }
 
 // ============================================================
-// RECEIPT FUNCTIONS (placeholders – kept for compatibility)
+// RECEIPT FUNCTIONS – Now using real receipt from receipt.js
 // ============================================================
 
-function viewReceipt(id) { window.showToast('Receipt view coming soon', 'info'); }
-function reprintReceipt(id) { window.showToast('Reprint coming soon', 'info'); }
-function downloadReceiptPDF(id) { window.showToast('PDF download coming soon', 'info'); }
-function printLastReceipt(id) { window.showToast('Print last receipt coming soon', 'info'); }
+// These functions now call the imported showReceipt
+function viewReceipt(id) {
+  showReceipt(id);  // from receipt.js
+}
+
+function reprintReceipt(id) {
+  showReceipt(id);
+  // Optionally trigger print after a short delay
+  setTimeout(() => window.print(), 500);
+}
+
+function downloadReceiptPDF(id) {
+  // This will be handled by receipt.js download function
+  // We'll call the global download function from receipt.js if available
+  if (window.downloadReceiptPDF) {
+    window.downloadReceiptPDF(id);
+  } else {
+    window.showToast('PDF download coming soon', 'info');
+  }
+}
+
+function printLastReceipt(studentId) {
+  const payments = window.PAYMENTS.filter(p => p.studentId === studentId);
+  if (payments.length === 0) {
+    window.showToast('No payment history found', 'info');
+    return;
+  }
+  const lastPayment = payments[payments.length - 1];
+  showReceipt(lastPayment.id);
+  setTimeout(() => window.print(), 500);
+}
 
 // ============================================================
 // EXPOSE GLOBALLY
@@ -676,8 +655,6 @@ window.showStudentDetail = showStudentDetail;
 window.openCollectFeeModal = openCollectFeeModal;
 window.processFeePayment = processFeePayment;
 window.showPaymentHistory = showPaymentHistory;
-window.openBulkCollectModal = openBulkCollectModal;
-window.processBulkCollection = processBulkCollection;
 window.viewReceipt = viewReceipt;
 window.reprintReceipt = reprintReceipt;
 window.downloadReceiptPDF = downloadReceiptPDF;
