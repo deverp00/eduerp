@@ -4,10 +4,7 @@
 
 import { getCurrentUser, getAllData } from './firebase.js';
 
-// ============================================================
-// DOM REFS
-// ============================================================
-
+// DOM refs
 const sidebar = document.getElementById('sidebar');
 const overlay = document.getElementById('overlay');
 const menuToggle = document.getElementById('menuToggle');
@@ -89,7 +86,6 @@ function navigateTo(page) {
   };
   pageTitle.textContent = titles[page] || 'Dashboard';
 
-  // Each module’s render function is exposed globally and called here.
   switch (page) {
     case 'dashboard': if (window.renderDashboard) window.renderDashboard(); break;
     case 'students': if (window.renderStudents) window.renderStudents(); break;
@@ -147,7 +143,7 @@ modalConfirm.addEventListener('click', () => {
 });
 
 // ============================================================
-// GLOBAL DATA STORES (replaces dummy arrays)
+// GLOBAL DATA STORES
 // ============================================================
 
 window.STUDENTS = [];
@@ -184,29 +180,25 @@ async function loadAllData() {
 }
 
 // ============================================================
-// INIT – Check Auth & Load Data, then Navigate
+// INIT
 // ============================================================
 
 document.addEventListener('DOMContentLoaded', async () => {
   showLoading(true);
-
-  // Check if user is authenticated (optional – for security rules)
   const user = await getCurrentUser();
   if (!user) {
-    // Not logged in – you can show a login prompt or just warn
     console.warn('No authenticated user. Firebase rules may block reads/writes.');
     showToast('Please log in as admin to use the system.', 'info');
   } else {
     console.log('Authenticated as:', user.email);
   }
-
   await loadAllData();
   showLoading(false);
   navigateTo('dashboard');
 });
 
 // ============================================================
-// EXPOSE GLOBAL FUNCTIONS FOR OTHER MODULES
+// EXPOSE GLOBALLY
 // ============================================================
 
 window.showToast = showToast;
@@ -215,3 +207,4 @@ window.openModal = openModal;
 window.closeModal = closeModal;
 window.navigateTo = navigateTo;
 window.loadAllData = loadAllData;
+window.modalCallback = modalCallback;
