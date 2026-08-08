@@ -1,4 +1,4 @@
-p==================================================
+// ============================================================
 // LOGIN MODULE – Admin Authentication Overlay
 // ============================================================
 
@@ -44,7 +44,7 @@ function createLoginOverlay() {
           <rect x="8" y="8" width="20" height="20" rx="4" fill="white" />
           <path d="M14 14H22V16H14V14ZM14 18H20V20H14V18ZM14 22H18V24H14V22Z" fill="#3b82f6" />
         </svg>
-        <span style="font-size: 1.5rem; font-weight: 700; color: #0f172a;">Hawaipur HS School</span>
+        <span style="font-size: 1.5rem; font-weight: 700; color: #0f172a;">SchoolERP</span>
       </div>
       <p style="color: #64748b; font-size: 0.9rem; margin: 0;">Admin Login</p>
     </div>
@@ -60,7 +60,9 @@ function createLoginOverlay() {
     </div>
 
     <div style="text-align: right; margin-bottom: 1rem;">
-      <button id="forgotPasswordBtn" style="background: none; border: none; color: #3b82f6; font-size: 0.8rem; cursor: pointer; text-decoration: underline;">Forgot Password?</button>
+      <button id="forgotPasswordBtn" style="background: none; border: none; color: #3b82f6; font-size: 0.8rem; cursor: pointer; text-decoration: none; transition: text-decoration 0.2s;">
+        Forgot Password?
+      </button>
     </div>
 
     <button id="loginBtn" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 0.6rem; font-size: 1rem;">
@@ -69,10 +71,12 @@ function createLoginOverlay() {
         <span class="loading-spinner" style="width: 20px; height: 20px; border-width: 3px;"></span>
       </span>
     </button>
+
+    <div style="text-align: center; margin-top: 0.75rem; font-size: 0.8rem; color: #64748b;">
+      Developed by <a href="https://yadav150.github.io/y-p/index.html" target="_blank" rel="noopener noreferrer" style="color: #3b82f6; text-decoration: none; transition: text-decoration 0.2s;">Yadav Web Technologies</a>
+    </div>
+
     <div id="loginError" style="color: #ef4444; font-size: 0.85rem; text-align: center; margin-top: 0.75rem; display: none;"></div>
-    <div style="text-align:center;color:#000;margin-top:1.5rem;">
-    <p>Developed by <a href="https://yadav150.github.io/y-p/index.html" style="color:#3b82f6;text-decoration:none;">Yadav Web Technologies</a></p>
-</div>
   `;
 
   overlay.appendChild(card);
@@ -81,12 +85,12 @@ function createLoginOverlay() {
   // Focus email input
   setTimeout(() => document.getElementById('loginEmail')?.focus(), 100);
 
-  // Enter key margin-top
+  // Enter key support
   document.getElementById('loginPassword').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') handleLogin();
   });
   document.getElementById('loginEmail').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') document.getElementById('loginPassword').focs();
+    if (e.key === 'Enter') document.getElementById('loginPassword').focus();
   });
 
   // Login button
@@ -94,6 +98,17 @@ function createLoginOverlay() {
 
   // Forgot password
   document.getElementById('forgotPasswordBtn').addEventListener('click', handleForgotPassword);
+
+  // Add hover underline effect for links
+  const links = card.querySelectorAll('a, #forgotPasswordBtn');
+  links.forEach(link => {
+    link.addEventListener('mouseenter', () => {
+      link.style.textDecoration = 'underline';
+    });
+    link.addEventListener('mouseleave', () => {
+      link.style.textDecoration = 'none';
+    });
+  });
 }
 
 // ============================================================
