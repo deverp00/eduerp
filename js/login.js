@@ -44,7 +44,7 @@ function createLoginOverlay() {
           <rect x="8" y="8" width="20" height="20" rx="4" fill="white" />
           <path d="M14 14H22V16H14V14ZM14 18H20V20H14V18ZM14 22H18V24H14V22Z" fill="#3b82f6" />
         </svg>
-        <span style="font-size: 1.5rem; font-weight: 700; color: #0f172a;">SchoolERP</span>
+        <span style="font-size: 1.5rem; font-weight: 700; color: #0f172a;">Hawaipur HS School</span>
       </div>
       <p style="color: #64748b; font-size: 0.9rem; margin: 0;">Admin Login</p>
     </div>
