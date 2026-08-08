@@ -5,6 +5,29 @@
 import { createData, updateData, deleteData } from './firebase.js';
 
 // ============================================================
+// HELPERS
+// ============================================================
+
+function generateReceiptNumber(prefix = 'RCP') {
+  return `${prefix}-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+}
+
+async function createPaymentFromFee(fee, method = 'N/A') {
+  const payment = {
+    studentId: fee.studentId,
+    receiptNo: fee.receiptNo || generateReceiptNumber('PAY'),
+    date: new Date().toISOString().split('T')[0],
+    month: new Date().toLocaleString('default', { month: 'long' }),
+    amount: fee.paid,
+    method: method,
+    status: fee.status
+  };
+  const result = await createData('payments', payment);
+  window.PAYMENTS.push(result);
+  return result;
+}
+
+// ============================================================
 // RENDER FEES TABLE + ANALYTICS
 // ============================================================
 
@@ -14,7 +37,6 @@ function renderFees(session = '2025-26', classFilter = 'all', monthFilter = 'all
 
   let list = fees;
 
-  // Apply filters
   if (statusFilter !== 'all') {
     list = list.filter(f => f.status === statusFilter);
   }
@@ -39,7 +61,6 @@ function renderFees(session = '2025-26', classFilter = 'all', monthFilter = 'all
       return s && s.class === classNum;
     });
   }
-  // Month filter – if not 'all', filter by associated payment month
   if (monthFilter !== 'all') {
     list = list.filter(f => {
       const payment = window.PAYMENTS.find(p => p.studentId === f.studentId && p.amount === f.amount && p.status === f.status && p.date);
@@ -47,7 +68,6 @@ function renderFees(session = '2025-26', classFilter = 'all', monthFilter = 'all
       return payment.month === monthFilter;
     });
   }
-  // Session filter – placeholder (no session field in fee records yet)
 
   list.sort((a, b) => {
     const nameA = students.find(s => s.id === a.studentId)?.name || '';
@@ -96,13 +116,25 @@ function renderFees(session = '2025-26', classFilter = 'all', monthFilter = 'all
 function renderFeeAnalytics() {
   const grid = document.getElementById('feeAnalyticsGrid');
   if (!grid) return;
+
   const payments = window.PAYMENTS || [];
   const fees = window.FEE_RECORDS || [];
 
   const today = new Date().toDateString();
-  const todayCollection = payments.filter(p => new Date(p.date).toDateString() === today).reduce((sum, p) => sum + (p.amount || 0), 0);
-  const monthCollection = payments.filter(p => new Date(p.date).getMonth() === new Date().getMonth()).reduce((sum, p) => sum + (p.amount || 0), 0);
-  const annualCollection = payments.filter(p => new Date(p.date).getFullYear() === new Date().getFullYear()).reduce((sum, p) => sum + (p.amount || 0), 0);
+  const todayCollection = payments
+    .filter(p => new Date(p.date).toDateString() === today)
+    .reduce((sum, p) => sum + (p.amount || 0), 0);
+
+  const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+  const monthCollection = payments
+    .filter(p => new Date(p.date).getMonth() === currentMonth && new Date(p.date).getFullYear() === currentYear)
+    .reduce((sum, p) => sum + (p.amount || 0), 0);
+
+  const annualCollection = payments
+    .filter(p => new Date(p.date).getFullYear() === currentYear)
+    .reduce((sum, p) => sum + (p.amount || 0), 0);
+
   const pendingFees = fees.reduce((sum, f) => sum + (f.pending || 0), 0);
   const totalReceipts = payments.length;
 
@@ -297,7 +329,7 @@ async function processFeePayment(studentId) {
   if (btn) { btn.disabled = true; btn.textContent = 'Processing...'; }
 
   try {
-    const receiptNo = `RCP-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+    const receiptNo = generateReceiptNumber('RCP');
     // Create fee record
     const newFee = {
       studentId: studentId,
@@ -311,7 +343,7 @@ async function processFeePayment(studentId) {
     const feeResult = await createData('feeRecords', newFee);
     window.FEE_RECORDS.push(feeResult);
 
-    // Create payment history
+    // Create payment record
     const payment = {
       studentId: studentId,
       receiptNo: receiptNo,
@@ -459,21 +491,17 @@ function initFeeModule() {
   renderFeeAnalytics();
   setupFeeSearch();
 
-  // Auto-apply on filter change
   const filters = ['feeSession', 'feeClassFilter', 'feeMonthFilter', 'feeStatusFilter'];
   filters.forEach(id => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('change', applyFeeFilters);
   });
 
-  // Bulk collect
   const bulkBtn = document.getElementById('feeCollectBulkBtn');
   if (bulkBtn) bulkBtn.addEventListener('click', openBulkCollectModal);
 
-  // Add Fee
   document.getElementById('addFeeBtn').addEventListener('click', showAddFeeModal);
 
-  // Search input
   const searchInput = document.getElementById('feeUniversalSearch');
   if (searchInput) {
     searchInput.addEventListener('input', applyFeeFilters);
@@ -481,7 +509,7 @@ function initFeeModule() {
 }
 
 // ============================================================
-// ADD FEE
+// ADD FEE (with payment creation if paid > 0)
 // ============================================================
 
 function showAddFeeModal() {
@@ -520,14 +548,52 @@ function showAddFeeModal() {
     const paid = parseFloat(document.getElementById('addFeePaid').value) || 0;
     const pending = parseFloat(document.getElementById('addFeePending').value) || 0;
     const status = document.getElementById('addFeeStatus').value;
+
     if (isNaN(amount) || amount <= 0) {
       window.showToast('Please enter a valid amount', 'error');
       return;
     }
-    const newFee = { studentId, feeType: finalFeeType, amount, paid, pending, status };
-    const result = await createData('feeRecords', newFee);
-    window.FEE_RECORDS.push(result);
-    window.showToast('Fee record added', 'success');
+    if (paid < 0 || pending < 0) {
+      window.showToast('Paid and Pending cannot be negative', 'error');
+      return;
+    }
+    if (paid + pending !== amount) {
+      window.showToast('Paid + Pending must equal Amount', 'error');
+      return;
+    }
+
+    let receiptNo = '';
+    let paymentMethod = 'Cash'; // default for manually added fees
+
+    const newFee = {
+      studentId,
+      feeType: finalFeeType,
+      amount,
+      paid,
+      pending,
+      status,
+      receiptNo: paid > 0 ? generateReceiptNumber('RCP') : ''
+    };
+
+    const feeResult = await createData('feeRecords', newFee);
+    window.FEE_RECORDS.push(feeResult);
+
+    // If the fee is paid (paid > 0), create a corresponding payment record
+    if (paid > 0) {
+      const payment = {
+        studentId,
+        receiptNo: newFee.receiptNo,
+        date: new Date().toISOString().split('T')[0],
+        month: new Date().toLocaleString('default', { month: 'long' }),
+        amount: paid,
+        method: paymentMethod,
+        status: status
+      };
+      const payResult = await createData('payments', payment);
+      window.PAYMENTS.push(payResult);
+    }
+
+    window.showToast('Fee record added' + (paid > 0 ? ' and payment created' : ''), 'success');
     applyFeeFilters();
     if (window.renderDashboard) window.renderDashboard();
     window.closeModal();
@@ -547,7 +613,7 @@ function showAddFeeModal() {
 }
 
 // ============================================================
-// DELETE FEE (with associated payment cleanup)
+// DELETE FEE (with payment cleanup)
 // ============================================================
 
 async function deleteFee(id) {
@@ -559,15 +625,22 @@ async function deleteFee(id) {
     return;
   }
 
-  // If fee type is 'Payment', also delete associated payment record
+  // Find associated payment: if fee type is 'Payment' or if paid > 0
   let paymentToDelete = null;
-  if (fee.feeType === 'Payment') {
-    paymentToDelete = window.PAYMENTS.find(p =>
-      p.studentId === fee.studentId &&
-      p.amount === fee.amount &&
-      p.status === fee.status &&
-      new Date(p.date).toDateString() === new Date().toDateString()
-    );
+  if (fee.feeType === 'Payment' || fee.paid > 0) {
+    // Try to find a matching payment by receiptNo or by studentId+amount+date
+    if (fee.receiptNo) {
+      paymentToDelete = window.PAYMENTS.find(p => p.receiptNo === fee.receiptNo);
+    }
+    if (!paymentToDelete) {
+      // Fallback: match by studentId, amount, and date (approx)
+      const todayStr = new Date().toISOString().split('T')[0];
+      paymentToDelete = window.PAYMENTS.find(p =>
+        p.studentId === fee.studentId &&
+        p.amount === fee.paid &&
+        p.date === todayStr // simple fallback; might be improved
+      );
+    }
   }
 
   try {
