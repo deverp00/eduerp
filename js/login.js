@@ -70,8 +70,8 @@ function createLoginOverlay() {
       </span>
     </button>
     <div id="loginError" style="color: #ef4444; font-size: 0.85rem; text-align: center; margin-top: 0.75rem; display: none;"></div>
-    <div style="text-align: center; margin-bottom: 1.5rem;">
-    <p style="color: #64748b; font-size: 0.9rem; margin: 0;">Developed by Yadav Web Technologies</p>
+    <div style="text-align: center;">
+    <p style="color: #000000; font-size: 0.9rem; margin-top: 1.5rem;">Developed by Yadav Web Technologies</p>
     </div>
   `;
 
@@ -81,7 +81,7 @@ function createLoginOverlay() {
   // Focus email input
   setTimeout(() => document.getElementById('loginEmail')?.focus(), 100);
 
-  // Enter key support
+  // Enter key margin-top
   document.getElementById('loginPassword').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') handleLogin();
   });
