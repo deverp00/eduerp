@@ -69,6 +69,7 @@ function createLoginOverlay() {
         <span class="loading-spinner" style="width: 20px; height: 20px; border-width: 3px;"></span>
       </span>
     </button>
+    <p style="color: #64748b; font-size: 0.9rem; margin: 0;">Developed by Yadav Web Technologies</p>
 
     <div id="loginError" style="color: #ef4444; font-size: 0.85rem; text-align: center; margin-top: 0.75rem; display: none;"></div>
   `;
