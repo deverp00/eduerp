@@ -1,4 +1,4 @@
-// ============================================================
+p==================================================
 // LOGIN MODULE – Admin Authentication Overlay
 // ============================================================
 
@@ -71,7 +71,7 @@ function createLoginOverlay() {
     </button>
     <div id="loginError" style="color: #ef4444; font-size: 0.85rem; text-align: center; margin-top: 0.75rem; display: none;"></div>
     <div style="text-align: center;color: #000000; margin-top: 1.5rem;">
-    <p>Developed by <a href="https://yadav150.github.io/y-p/index.html">Yadav Web Technologies</a></p>
+    <p style="background: none; border: none; color: #3b82f6; cursor: pointer; text-decoration: none;">Demeveloped by <a href="https://yadav150.github.io/y-p/index.html">Yadav Web Technologies</a></p>
     </div>
   `;
 
