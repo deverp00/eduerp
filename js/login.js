@@ -44,7 +44,7 @@ function createLoginOverlay() {
           <rect x="8" y="8" width="20" height="20" rx="4" fill="white" />
           <path d="M14 14H22V16H14V14ZM14 18H20V20H14V18ZM14 22H18V24H14V22Z" fill="#3b82f6" />
         </svg>
-        <span style="font-size: 1.5rem; font-weight: 700; color: #0f172a;">Hawaipur HS School Management ERP</span>
+        <span style="font-size: 1.5rem; font-weight: 700; color: #0f172a;">Hawaipur HS School</span>
       </div>
       <p style="color: #64748b; font-size: 0.9rem; margin: 0;">Admin Login</p>
     </div>
@@ -69,9 +69,10 @@ function createLoginOverlay() {
         <span class="loading-spinner" style="width: 20px; height: 20px; border-width: 3px;"></span>
       </span>
     </button>
-    <p style="color: #64748b; font-size: 0.9rem; margin: 0;">Developed by Yadav Web Technologies</p>
-
     <div id="loginError" style="color: #ef4444; font-size: 0.85rem; text-align: center; margin-top: 0.75rem; display: none;"></div>
+    <div style="text-align: center; margin-bottom: 1.5rem;">
+    <p style="color: #64748b; font-size: 0.9rem; margin: 0;">Developed by Yadav Web Technologies</p>
+    </div>
   `;
 
   overlay.appendChild(card);
@@ -85,7 +86,7 @@ function createLoginOverlay() {
     if (e.key === 'Enter') handleLogin();
   });
   document.getElementById('loginEmail').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') document.getElementById('loginPassword').focus();
+    if (e.key === 'Enter') document.getElementById('loginPassword').focs();
   });
 
   // Login button
