@@ -70,8 +70,8 @@ function createLoginOverlay() {
       </span>
     </button>
     <div id="loginError" style="color: #ef4444; font-size: 0.85rem; text-align: center; margin-top: 0.75rem; display: none;"></div>
-    <div style="text-align: center;">
-    <p style="color: #000000; font-size: 0.9rem; margin-top: 1.5rem;">Developed by Yadav Web Technologies</p>
+    <div style="text-align: center;color: #000000; margin-top: 1.5rem;">
+    <p>Developed by <a href="https://yadav150.github.io/y-p/index.html">Yadav Web Technologies</a></p>
     </div>
   `;
 
