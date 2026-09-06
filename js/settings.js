@@ -2,7 +2,7 @@
 // SETTINGS MODULE – Centralized Configuration
 // ============================================================
 
-import { getOneData, setData, updateData, createData } from './firebase.js';
+import { getOneData, setData } from './firebase.js';
 
 // Default settings – used when no settings exist in Firebase
 const DEFAULT_SETTINGS = {
@@ -288,11 +288,16 @@ function populatePanel(panelId) {
 
   panel.innerHTML = html;
 
-  // Apply common styles
+  // Apply common styles to form groups
   panel.querySelectorAll('.form-group').forEach(group => {
     group.style.marginBottom = '1rem';
     const label = group.querySelector('label');
-    if (label) { label.style.display = 'block'; label.style.fontWeight = '500'; label.style.fontSize = '0.9rem'; label.style.marginBottom = '0.25rem'; }
+    if (label) {
+      label.style.display = 'block';
+      label.style.fontWeight = '500';
+      label.style.fontSize = '0.9rem';
+      label.style.marginBottom = '0.25rem';
+    }
     const input = group.querySelector('input, select, textarea');
     if (input) {
       input.style.width = '100%';
@@ -357,7 +362,6 @@ async function saveSettings() {
   settings.dateFormat = document.getElementById('set_dateFormat')?.value || SETTINGS.dateFormat;
   settings.numberFormat = document.getElementById('set_numberFormat')?.value || SETTINGS.numberFormat;
 
-  // Update global
   SETTINGS = { ...SETTINGS, ...settings };
   window.SETTINGS = SETTINGS;
 
@@ -367,13 +371,12 @@ async function saveSettings() {
 
   try {
     await saveSettingsToFirebase(SETTINGS);
-    // Refresh dashboards and modules
+    // Refresh modules that may use settings
     if (window.renderDashboard) window.renderDashboard();
     if (window.renderStudents) window.renderStudents();
     if (window.renderStaff) window.renderStaff();
     if (window.renderFees) window.renderFees();
     if (window.renderSalary) window.renderSalary();
-    // Receipts will use updated window.SETTINGS on next open
   } catch (error) {
     console.error('Save error:', error);
   } finally {
