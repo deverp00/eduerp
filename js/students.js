@@ -71,31 +71,23 @@ function renderStudents(filter = 'all', search = '') {
 }
 
 // ============================================================
-// ADD STUDENT
+// ADD STUDENT – Navigate to full-page form
 // ============================================================
 
 function showAddStudentModal() {
-  const classOptions = Array.from({ length: 12 }, (_, i) => i + 1)
-    .map(c => `<option value="${c}">Class ${c}</option>`).join('');
-  const sectionOptions = ['A', 'B', 'C', 'NA']
-    .map(sec => `<option value="${sec}">${sec}</option>`).join('');
+  // Redirect to the dedicated add page
+  window.navigateTo('add-student');
+}
 
-  window.openModal('Add Student', `
-    <div class="form-group"><label>Name</label><input type="text" id="addStudentName" placeholder="Full name" /></div>
-    <div class="form-group"><label>Class</label><select id="addStudentClass">${classOptions}</select></div>
-    <div class="form-group"><label>Section</label><select id="addStudentSection">${sectionOptions}</select></div>
-    <div class="form-group"><label>Roll No</label><input type="number" id="addStudentRoll" placeholder="Roll number" /></div>
-    <div class="form-group"><label>Fee Status</label>
-      <select id="addStudentFeeStatus">
-        <option value="paid">Paid</option>
-        <option value="pending">Pending</option>
-        <option value="overdue">Overdue</option>
-      </select>
-    </div>
-    <div class="form-group"><label>Admission No</label><input type="text" id="addStudentAdmission" placeholder="ADM001" /></div>
-    <div class="form-group"><label>Mobile</label><input type="text" id="addStudentMobile" placeholder="9876543210" /></div>
-    <div class="form-group"><label>Guardian</label><input type="text" id="addStudentGuardian" placeholder="Mr. Sharma" /></div>
-  `, 'Add Student', async () => {
+// ============================================================
+// SUBMIT HANDLER FOR THE FULL-PAGE ADD FORM
+// ============================================================
+
+function setupAddStudentForm() {
+  const submitBtn = document.getElementById('addStudentSubmitBtn');
+  if (!submitBtn) return;
+
+  submitBtn.addEventListener('click', async function() {
     const name = document.getElementById('addStudentName').value.trim();
     const classVal = parseInt(document.getElementById('addStudentClass').value);
     const section = document.getElementById('addStudentSection').value;
@@ -105,14 +97,21 @@ function showAddStudentModal() {
     const mobile = document.getElementById('addStudentMobile').value.trim();
     const guardian = document.getElementById('addStudentGuardian').value.trim();
 
+    // Validate
     if (!name || !classVal || !roll) {
-      window.showToast('Please fill all required fields', 'error');
+      window.showToast('Please fill all required fields (Name, Class, Roll No)', 'error');
       return;
     }
 
-    // Generate a unique student ID
+    // Generate studentId
     const random = Math.floor(1000 + Math.random() * 9000);
-    const studentId = `STU-${random}`;
+    let studentId = `STU-${random}`;
+    // Simple duplicate check against existing students (just in case)
+    const isDuplicate = window.STUDENTS.some(s => s.studentId === studentId);
+    if (isDuplicate) {
+      const newRandom = Math.floor(1000 + Math.random() * 9000);
+      studentId = `STU-${newRandom}`;
+    }
 
     const newStudent = {
       name,
@@ -121,28 +120,27 @@ function showAddStudentModal() {
       roll,
       feeStatus,
       admissionNo: admissionNo || `ADM${String(Date.now()).slice(-6)}`,
-      studentId: studentId, // <-- Added
+      studentId,
       mobile: mobile || '',
       guardian: guardian || '',
       photo: ''
     };
 
-    // Show loading on button
-    const btn = document.querySelector('#modal .btn-primary');
-    if (btn) { btn.disabled = true; btn.textContent = 'Adding...'; }
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Adding...';
 
     try {
       const result = await createData('students', newStudent);
       window.STUDENTS.push(result);
       window.showToast('Student added successfully', 'success');
-      renderStudents();
-      if (window.renderDashboard) window.renderDashboard();
-      window.closeModal();
+      // Redirect back to students page
+      window.navigateTo('students');
     } catch (error) {
       console.error('Add student error:', error);
       window.showToast('Failed to add student. Please try again.', 'error');
     } finally {
-      if (btn) { btn.disabled = false; btn.textContent = 'Add Student'; }
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Add Student';
     }
   });
 }
@@ -197,7 +195,7 @@ async function editStudent(id) {
       roll,
       feeStatus,
       admissionNo: admissionNo || student.admissionNo,
-      studentId: student.studentId || `STU-${Math.floor(1000 + Math.random() * 9000)}`, // preserve or generate
+      studentId: student.studentId || `STU-${Math.floor(1000 + Math.random() * 9000)}`,
       mobile: mobile || '',
       guardian: guardian || '',
       photo: student.photo || ''
@@ -256,14 +254,11 @@ async function migrateStudentIds() {
   let updatedCount = 0;
 
   for (const student of students) {
-    // Skip if already has an ID
     if (student.studentId) continue;
 
-    // Generate unique ID
     const random = Math.floor(1000 + Math.random() * 9000);
     let studentId = `STU-${random}`;
-
-    // Check for duplicates in the existing list (just in case)
+    // Check for duplicates in the existing list
     const isDuplicate = students.some(s => s.studentId === studentId);
     if (isDuplicate) {
       const newRandom = Math.floor(1000 + Math.random() * 9000);
@@ -271,9 +266,7 @@ async function migrateStudentIds() {
     }
 
     try {
-      // Update Firebase
       await updateData('students', student.id, { studentId });
-      // Update local array
       student.studentId = studentId;
       updatedCount++;
     } catch (error) {
@@ -310,6 +303,9 @@ document.addEventListener('DOMContentLoaded', () => {
       renderStudents(e.target.value, search);
     });
   }
+
+  // Set up the full-page add form submit
+  setupAddStudentForm();
 });
 
 // ============================================================
@@ -320,4 +316,4 @@ window.renderStudents = renderStudents;
 window.showAddStudentModal = showAddStudentModal;
 window.editStudent = editStudent;
 window.deleteStudent = deleteStudent;
-window.migrateStudentIds = migrateStudentIds; // <-- Added
+window.migrateStudentIds = migrateStudentIds;
