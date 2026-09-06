@@ -10,6 +10,8 @@ import { createData, updateData, deleteData } from './firebase.js';
 
 function renderSalary(statusFilter = 'all', search = '') {
   const salaryRecords = window.SALARY_RECORDS || [];
+
+  // Stats
   const totalPaid = salaryRecords.filter(s => s.status === 'paid').reduce((sum, s) => sum + (s.amount || 0), 0);
   const totalPending = salaryRecords.filter(s => s.status === 'pending').reduce((sum, s) => sum + (s.amount || 0), 0);
   const totalRecords = salaryRecords.length;
@@ -59,6 +61,7 @@ function renderSalary(statusFilter = 'all', search = '') {
     </tr>
   `).join('');
 
+  // Attach event listeners using data attributes
   tbody.querySelectorAll('[data-action="showReceipt"]').forEach(btn => {
     btn.addEventListener('click', () => {
       if (window.showSalaryReceipt) window.showSalaryReceipt(btn.dataset.id);
@@ -70,10 +73,11 @@ function renderSalary(statusFilter = 'all', search = '') {
 }
 
 // ============================================================
-// GET ELIGIBLE TEACHERS
+// GET ELIGIBLE TEACHERS FOR SELECTED MONTH/YEAR
 // ============================================================
 
 function getEligibleTeachers(month, year) {
+  // FIX: Fallback to empty array if window.TEACHERS is undefined
   const allTeachers = window.TEACHERS || [];
   const paidTeachers = window.SALARY_RECORDS
     .filter(s => s.month === month && s.year === year)
@@ -90,7 +94,7 @@ function showAddSalaryModal() {
 }
 
 // ============================================================
-// POPULATE SALARY FORM
+// POPULATE SALARY FORM (dropdowns + eligibility)
 // ============================================================
 
 function populateSalaryForm() {
@@ -99,6 +103,7 @@ function populateSalaryForm() {
   const employeeSelect = document.getElementById('addSalaryEmployee');
   if (!monthSelect || !yearSelect || !employeeSelect) return;
 
+  // Set default month/year to current
   const now = new Date();
   const defaultMonth = now.toLocaleString('default', { month: 'long' });
   const defaultYear = now.getFullYear();
@@ -116,12 +121,14 @@ function populateSalaryForm() {
   }
 
   updateEligibleTeachers();
+
+  // Re-run when month or year changes
   monthSelect.addEventListener('change', updateEligibleTeachers);
   yearSelect.addEventListener('change', updateEligibleTeachers);
 }
 
 // ============================================================
-// SUBMIT HANDLER FOR FULL-PAGE FORM
+// SUBMIT HANDLER FOR THE FULL-PAGE ADD FORM
 // ============================================================
 
 function setupAddSalaryForm() {
@@ -132,6 +139,7 @@ function setupAddSalaryForm() {
   const statusSelect = document.getElementById('addSalaryStatus');
   const methodSelect = document.getElementById('addSalaryPaymentMethod');
   const settings = window.SETTINGS || {};
+
   if (statusSelect) {
     const statuses = settings.salaryStatusOptions || ['paid','pending'];
     statusSelect.innerHTML = statuses.map(s => `<option value="${s}">${s}</option>`).join('');
@@ -153,11 +161,13 @@ function setupAddSalaryForm() {
       window.showToast('Please fill all fields with valid values', 'error');
       return;
     }
+
     if (status === 'paid' && !paymentMethod) {
       window.showToast('Payment method is required when status is "paid"', 'error');
       return;
     }
 
+    // Duplicate check (final safeguard)
     const existing = window.SALARY_RECORDS.find(s => s.employeeId === employeeId && s.month === month && s.year === year);
     if (existing) {
       window.showToast('This teacher already has a salary record for this month/year.', 'error');
@@ -170,14 +180,17 @@ function setupAddSalaryForm() {
       return;
     }
 
+    // Generate receipt number if paid
     let receiptNo = '';
     if (status === 'paid') {
       receiptNo = `SAL-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
     }
 
+    // Generate unique salary ID using settings prefix
     const prefix = settings.salaryIdPrefix || 'SAL';
     const random = Math.floor(1000 + Math.random() * 9000);
     let salaryId = `${prefix}-${random}`;
+    // Check for duplicate salaryId
     const isDuplicate = window.SALARY_RECORDS.some(s => s.salaryId === salaryId);
     if (isDuplicate) {
       const newRandom = Math.floor(1000 + Math.random() * 9000);
@@ -195,7 +208,7 @@ function setupAddSalaryForm() {
       paymentMethod: status === 'paid' ? paymentMethod : '',
       receiptNo: receiptNo,
       paymentDate: status === 'paid' ? new Date().toISOString().split('T')[0] : '',
-      salaryId
+      salaryId: salaryId
     };
 
     submitBtn.disabled = true;
@@ -222,8 +235,10 @@ function setupAddSalaryForm() {
 
 async function deleteSalary(id) {
   if (!confirm('Are you sure you want to delete this salary record?')) return;
+
   const btn = document.querySelector(`button[data-id="${id}"][data-action="deleteSalary"]`);
   if (btn) { btn.disabled = true; btn.textContent = 'Deleting...'; }
+
   try {
     await deleteData('salaryRecords', id);
     window.SALARY_RECORDS = window.SALARY_RECORDS.filter(s => s.id !== id);
@@ -268,7 +283,7 @@ function showSalaryReceipt(id) {
 }
 
 // ============================================================
-// MIGRATION
+// MIGRATION: ADD SALARY IDs TO ALL EXISTING RECORDS
 // ============================================================
 
 async function migrateSalaryIds() {
@@ -276,15 +291,19 @@ async function migrateSalaryIds() {
   let updatedCount = 0;
   const settings = window.SETTINGS || {};
   const prefix = settings.salaryIdPrefix || 'SAL';
+
   for (const record of salaryRecords) {
     if (record.salaryId) continue;
+
     const random = Math.floor(1000 + Math.random() * 9000);
     let salaryId = `${prefix}-${random}`;
+
     const isDuplicate = salaryRecords.some(s => s.salaryId === salaryId);
     if (isDuplicate) {
       const newRandom = Math.floor(1000 + Math.random() * 9000);
       salaryId = `${prefix}-${newRandom}`;
     }
+
     try {
       await updateData('salaryRecords', record.id, { salaryId });
       record.salaryId = salaryId;
@@ -293,7 +312,10 @@ async function migrateSalaryIds() {
       console.error(`Failed to migrate salary record for ${record.employeeName}:`, error);
     }
   }
-  if (updatedCount > 0) console.log(`${updatedCount} salary records updated with Salary IDs.`);
+
+  if (updatedCount > 0) {
+    console.log(`${updatedCount} salary records updated with Salary IDs.`);
+  }
   return updatedCount;
 }
 
@@ -321,7 +343,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Populate the salary form dropdowns
   populateSalaryForm();
+
+  // Set up the full-page add form submit
   setupAddSalaryForm();
 });
 
