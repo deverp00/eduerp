@@ -19,6 +19,7 @@ const WARNING_TIME = 9 * 60 * 1000;
 let inactivityTimer = null;
 let warningTimer = null;
 let logoutInProgress = false;
+let isLogoutModalOpen = false; // NEW: prevents timer from firing while modal is up
 
 // ============================================================
 // CREATE LOGIN OVERLAY
@@ -342,7 +343,8 @@ function stopInactivityMonitoring() {
 // ============================================================
 
 function handleUserActivity() {
-  if (logoutInProgress) return;
+  // NEW: If logout modal is open, DO NOT reset timer (we want it paused)
+  if (logoutInProgress || isLogoutModalOpen) return;
 
   const warning = document.getElementById('inactivityWarning');
 
@@ -431,7 +433,7 @@ function showInactivityWarning() {
 // ============================================================
 
 async function handleAutomaticLogout() {
-  if (logoutInProgress) return;
+  if (logoutInProgress || isLogoutModalOpen) return; // NEW: block if modal open
 
   logoutInProgress = true;
   stopInactivityMonitoring();
@@ -466,6 +468,10 @@ async function handleAutomaticLogout() {
 
 function showLogoutConfirmation() {
   if (document.getElementById('logoutConfirmOverlay')) return;
+
+  // NEW: Pause inactivity timer immediately when modal opens
+  isLogoutModalOpen = true;
+  stopInactivityMonitoring();
 
   const overlay = document.createElement('div');
 
@@ -542,9 +548,9 @@ function showLogoutConfirmation() {
     .getElementById('cancelLogoutBtn')
     ?.addEventListener('click', () => {
       overlay.remove();
-
+      isLogoutModalOpen = false; // NEW: allow timer
       if (!logoutInProgress) {
-        resetInactivityTimer();
+        startInactivityMonitoring(); // NEW: restart timer on cancel
       }
     });
 
@@ -561,6 +567,7 @@ async function handleManualLogout() {
   if (logoutInProgress) return;
 
   logoutInProgress = true;
+  isLogoutModalOpen = false; // NEW: reset flag
 
   const confirmBtn = document.getElementById('confirmLogoutBtn');
   const confirmText = document.getElementById('confirmLogoutText');
@@ -570,6 +577,7 @@ async function handleManualLogout() {
   if (confirmText) confirmText.style.display = 'none';
   if (spinner) spinner.style.display = 'inline-block';
 
+  // Ensure timers are dead
   stopInactivityMonitoring();
 
   try {
@@ -589,7 +597,8 @@ async function handleManualLogout() {
     if (confirmText) confirmText.style.display = 'inline';
     if (spinner) spinner.style.display = 'none';
 
-    resetInactivityTimer();
+    // On error, restart the timer
+    startInactivityMonitoring();
 
     window.showToast?.(
       'Unable to log out. Please try again.',
@@ -645,8 +654,7 @@ function setupLogoutButton() {
 
   logoutBtn.addEventListener('click', (event) => {
     event.preventDefault();
-    event.stopPropagation();
-
+    event.stopImmediatePropagation(); // NEW: stronger prevention
     showLogoutConfirmation();
   });
 }
