@@ -10,8 +10,6 @@ import { createData, updateData, deleteData } from './firebase.js';
 
 function renderStudents(filter = 'all', search = '') {
   const students = window.STUDENTS || [];
-
-  // Stats
   const totalStudents = students.length;
   const paidCount = students.filter(s => s.feeStatus === 'paid').length;
   const pendingCount = students.filter(s => s.feeStatus === 'pending').length;
@@ -61,7 +59,6 @@ function renderStudents(filter = 'all', search = '') {
     </tr>
   `).join('');
 
-  // Attach event listeners to edit/delete buttons
   tbody.querySelectorAll('[data-action="editStudent"]').forEach(btn => {
     btn.addEventListener('click', () => editStudent(btn.dataset.id));
   });
@@ -75,7 +72,6 @@ function renderStudents(filter = 'all', search = '') {
 // ============================================================
 
 function showAddStudentModal() {
-  // Redirect to the dedicated add page
   window.navigateTo('add-student');
 }
 
@@ -87,6 +83,20 @@ function setupAddStudentForm() {
   const submitBtn = document.getElementById('addStudentSubmitBtn');
   if (!submitBtn) return;
 
+  // Populate class and section options from settings
+  const classSelect = document.getElementById('addStudentClass');
+  const sectionSelect = document.getElementById('addStudentSection');
+  if (classSelect) {
+    const settings = window.SETTINGS || {};
+    const classOptions = settings.studentClassOptions || [1,2,3,4,5,6,7,8,9,10];
+    classSelect.innerHTML = classOptions.map(c => `<option value="${c}">Class ${c}</option>`).join('');
+  }
+  if (sectionSelect) {
+    const settings = window.SETTINGS || {};
+    const sectionOptions = settings.studentSectionOptions || ['A','B','C','NA'];
+    sectionSelect.innerHTML = sectionOptions.map(sec => `<option value="${sec}">${sec}</option>`).join('');
+  }
+
   submitBtn.addEventListener('click', async function() {
     const name = document.getElementById('addStudentName').value.trim();
     const classVal = parseInt(document.getElementById('addStudentClass').value);
@@ -97,20 +107,20 @@ function setupAddStudentForm() {
     const mobile = document.getElementById('addStudentMobile').value.trim();
     const guardian = document.getElementById('addStudentGuardian').value.trim();
 
-    // Validate
     if (!name || !classVal || !roll) {
       window.showToast('Please fill all required fields (Name, Class, Roll No)', 'error');
       return;
     }
 
-    // Generate studentId
+    const settings = window.SETTINGS || {};
+    const prefix = settings.studentIdPrefix || 'STU';
     const random = Math.floor(1000 + Math.random() * 9000);
-    let studentId = `STU-${random}`;
-    // Simple duplicate check against existing students (just in case)
+    let studentId = `${prefix}-${random}`;
+    // simple duplicate check
     const isDuplicate = window.STUDENTS.some(s => s.studentId === studentId);
     if (isDuplicate) {
       const newRandom = Math.floor(1000 + Math.random() * 9000);
-      studentId = `STU-${newRandom}`;
+      studentId = `${prefix}-${newRandom}`;
     }
 
     const newStudent = {
@@ -119,7 +129,7 @@ function setupAddStudentForm() {
       section,
       roll,
       feeStatus,
-      admissionNo: admissionNo || `ADM${String(Date.now()).slice(-6)}`,
+      admissionNo: admissionNo || (settings.admissionNoPrefix || 'ADM') + String(Date.now()).slice(-6),
       studentId,
       mobile: mobile || '',
       guardian: guardian || '',
@@ -133,7 +143,6 @@ function setupAddStudentForm() {
       const result = await createData('students', newStudent);
       window.STUDENTS.push(result);
       window.showToast('Student added successfully', 'success');
-      // Redirect back to students page
       window.navigateTo('students');
     } catch (error) {
       console.error('Add student error:', error);
@@ -146,16 +155,17 @@ function setupAddStudentForm() {
 }
 
 // ============================================================
-// EDIT STUDENT
+// EDIT STUDENT (unchanged, still uses modal)
 // ============================================================
 
 async function editStudent(id) {
   const student = window.STUDENTS.find(s => s.id === id);
   if (!student) return;
 
-  const classOptions = Array.from({ length: 12 }, (_, i) => i + 1)
+  const settings = window.SETTINGS || {};
+  const classOptions = (settings.studentClassOptions || [1,2,3,4,5,6,7,8,9,10])
     .map(c => `<option value="${c}" ${c === student.class ? 'selected' : ''}>Class ${c}</option>`).join('');
-  const sectionOptions = ['A', 'B', 'C', 'NA']
+  const sectionOptions = (settings.studentSectionOptions || ['A','B','C','NA'])
     .map(sec => `<option value="${sec}" ${sec === student.section ? 'selected' : ''}>${sec}</option>`).join('');
 
   window.openModal('Edit Student', `
@@ -195,7 +205,7 @@ async function editStudent(id) {
       roll,
       feeStatus,
       admissionNo: admissionNo || student.admissionNo,
-      studentId: student.studentId || `STU-${Math.floor(1000 + Math.random() * 9000)}`,
+      studentId: student.studentId || `${settings.studentIdPrefix || 'STU'}-${Math.floor(1000 + Math.random() * 9000)}`,
       mobile: mobile || '',
       guardian: guardian || '',
       photo: student.photo || ''
@@ -227,10 +237,8 @@ async function editStudent(id) {
 
 async function deleteStudent(id) {
   if (!confirm('Are you sure you want to delete this student?')) return;
-
   const btn = document.querySelector(`button[data-id="${id}"][data-action="deleteStudent"]`);
   if (btn) { btn.disabled = true; btn.textContent = 'Deleting...'; }
-
   try {
     await deleteData('students', id);
     window.STUDENTS = window.STUDENTS.filter(s => s.id !== id);
@@ -246,25 +254,24 @@ async function deleteStudent(id) {
 }
 
 // ============================================================
-// MIGRATION: ADD STUDENT IDs TO ALL EXISTING STUDENTS
+// MIGRATION: ADD STUDENT IDs
 // ============================================================
 
 async function migrateStudentIds() {
   const students = window.STUDENTS || [];
   let updatedCount = 0;
+  const settings = window.SETTINGS || {};
+  const prefix = settings.studentIdPrefix || 'STU';
 
   for (const student of students) {
     if (student.studentId) continue;
-
     const random = Math.floor(1000 + Math.random() * 9000);
-    let studentId = `STU-${random}`;
-    // Check for duplicates in the existing list
+    let studentId = `${prefix}-${random}`;
     const isDuplicate = students.some(s => s.studentId === studentId);
     if (isDuplicate) {
       const newRandom = Math.floor(1000 + Math.random() * 9000);
-      studentId = `STU-${newRandom}`;
+      studentId = `${prefix}-${newRandom}`;
     }
-
     try {
       await updateData('students', student.id, { studentId });
       student.studentId = studentId;
@@ -273,10 +280,7 @@ async function migrateStudentIds() {
       console.error(`Failed to migrate student ${student.name}:`, error);
     }
   }
-
-  if (updatedCount > 0) {
-    console.log(`✅ ${updatedCount} students updated with Student IDs.`);
-  }
+  if (updatedCount > 0) console.log(`${updatedCount} students updated with Student IDs.`);
   return updatedCount;
 }
 
@@ -304,7 +308,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Set up the full-page add form submit
   setupAddStudentForm();
 });
 
