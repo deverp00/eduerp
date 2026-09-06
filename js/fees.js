@@ -303,7 +303,6 @@ async function processFeePayment(studentId) {
     // Generate feeId
     const random = Math.floor(1000 + Math.random() * 9000);
     let feeId = `FEE-${random}`;
-    // Check for duplicate feeId (very unlikely, but safe)
     const isDuplicate = window.FEE_RECORDS.some(f => f.feeId === feeId);
     if (isDuplicate) {
       const newRandom = Math.floor(1000 + Math.random() * 9000);
@@ -318,7 +317,7 @@ async function processFeePayment(studentId) {
       pending: 0,
       status: 'paid',
       receiptNo: receiptNo,
-      feeId: feeId // <-- Added
+      feeId: feeId
     };
     const feeResult = await createData('feeRecords', newFee);
     window.FEE_RECORDS.push(feeResult);
@@ -340,7 +339,7 @@ async function processFeePayment(studentId) {
       amount: received,
       method: method,
       status: 'paid',
-      paymentId: paymentId // <-- Added
+      paymentId: paymentId
     };
     const payResult = await createData('payments', payment);
     window.PAYMENTS.push(payResult);
@@ -368,7 +367,6 @@ async function payFee(feeId) {
     return;
   }
 
-  // Open a modal to enter payment amount
   const modalHTML = `
     <div class="form-group">
       <label>Amount to Pay (₹)</label>
@@ -396,7 +394,7 @@ async function payFee(feeId) {
 
     const newPaid = (fee.paid || 0) + amountPaid;
     const newPending = (fee.pending || 0) - amountPaid;
-    const newStatus = newPending === 0 ? 'paid' : 'pending'; // if partial payment, status remains pending
+    const newStatus = newPending === 0 ? 'paid' : 'pending';
 
     const updated = {
       paid: newPaid,
@@ -411,7 +409,6 @@ async function payFee(feeId) {
         window.FEE_RECORDS[idx] = { ...window.FEE_RECORDS[idx], ...updated };
       }
 
-      // Add payment history with paymentId
       const receiptNo = `RCP-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
       const payRandom = Math.floor(1000 + Math.random() * 9000);
       let paymentId = `PAY-${payRandom}`;
@@ -429,7 +426,7 @@ async function payFee(feeId) {
         amount: amountPaid,
         method: method,
         status: 'paid',
-        paymentId: paymentId // <-- Added
+        paymentId: paymentId
       };
       const payResult = await createData('payments', payment);
       window.PAYMENTS.push(payResult);
@@ -521,7 +518,6 @@ function openBulkCollectModal() {
       try {
         const random = Math.floor(1000 + Math.random() * 9000);
         let feeId = `FEE-${random}`;
-        // Check for duplicate (very unlikely)
         const isDuplicate = window.FEE_RECORDS.some(f => f.feeId === feeId);
         if (isDuplicate) {
           const newRandom = Math.floor(1000 + Math.random() * 9000);
@@ -534,7 +530,7 @@ function openBulkCollectModal() {
           paid: 0,
           pending: amount,
           status: 'pending',
-          feeId: feeId // <-- Added
+          feeId: feeId
         };
         const result = await createData('feeRecords', newFee);
         window.FEE_RECORDS.push(result);
@@ -578,54 +574,76 @@ function initFeeModule() {
   renderFeeAnalytics();
   setupFeeSearch();
 
-  // Auto-apply on filter change
   const filters = ['feeSession', 'feeClassFilter', 'feeMonthFilter', 'feeStatusFilter'];
   filters.forEach(id => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('change', applyFeeFilters);
   });
 
-  // Bulk collect
   const bulkBtn = document.getElementById('feeCollectBulkBtn');
   if (bulkBtn) bulkBtn.addEventListener('click', openBulkCollectModal);
 
-  // Add Fee
   document.getElementById('addFeeBtn').addEventListener('click', showAddFeeModal);
 
-  // Search input
   const searchInput = document.getElementById('feeUniversalSearch');
   if (searchInput) {
     searchInput.addEventListener('input', applyFeeFilters);
   }
+
+  // Populate the add fee form if on that page
+  populateFeeForm();
+  setupAddFeeForm();
 }
 
 // ============================================================
-// ADD FEE (simplified)
+// ADD FEE – Navigate to full-page form
 // ============================================================
 
 function showAddFeeModal() {
+  window.navigateTo('add-fee');
+}
+
+// ============================================================
+// POPULATE FEE FORM (student dropdown)
+// ============================================================
+
+function populateFeeForm() {
+  const studentSelect = document.getElementById('addFeeStudent');
+  if (!studentSelect) return;
   const students = window.STUDENTS || [];
-  const studentOptions = students.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
-  const feeTypeOptions = ['Admission Fee', 'Monthly Fee', 'Annual Fee', 'Examination Fee', 'Others']
-    .map(opt => `<option value="${opt}">${opt}</option>`).join('');
+  studentSelect.innerHTML = students.map(s => `<option value="${s.id}">${s.name}</option>`).join('') || '<option value="">No students</option>';
+}
 
-  const modalHTML = `
-    <div class="form-group"><label>Student</label><select id="addFeeStudent">${studentOptions}</select></div>
-    <div class="form-group"><label>Fee Type</label><select id="addFeeType">${feeTypeOptions}</select></div>
-    <div class="form-group" id="addCustomFeeGroup" style="display:none;">
-      <label>Custom Fee Description</label><input type="text" id="addCustomFee" placeholder="Enter custom fee description" />
-    </div>
-    <div class="form-group"><label>Amount (₹)</label><input type="number" id="addFeeAmount" placeholder="5000" /></div>
-  `;
+// ============================================================
+// SUBMIT HANDLER FOR THE FULL-PAGE ADD FORM
+// ============================================================
 
-  window.openModal('Add Fee Record', modalHTML, 'Add Fee', async () => {
+function setupAddFeeForm() {
+  const submitBtn = document.getElementById('addFeeSubmitBtn');
+  if (!submitBtn) return;
+
+  // Conditional logic for "Others" fee type
+  const feeTypeSelect = document.getElementById('addFeeType');
+  const customGroup = document.getElementById('addCustomFeeGroup');
+  if (feeTypeSelect && customGroup) {
+    const toggle = () => {
+      customGroup.style.display = feeTypeSelect.value === 'Others' ? 'block' : 'none';
+    };
+    feeTypeSelect.addEventListener('change', toggle);
+    toggle();
+  }
+
+  submitBtn.addEventListener('click', async function() {
     const studentId = document.getElementById('addFeeStudent').value;
     const feeTypeSelect = document.getElementById('addFeeType');
     const feeType = feeTypeSelect.value;
     let finalFeeType = feeType;
     if (feeType === 'Others') {
       const custom = document.getElementById('addCustomFee').value.trim();
-      if (!custom) { window.showToast('Please enter a custom fee description', 'error'); return; }
+      if (!custom) {
+        window.showToast('Please enter a custom fee description', 'error');
+        return;
+      }
       finalFeeType = custom;
     }
     const amount = parseFloat(document.getElementById('addFeeAmount').value);
@@ -650,27 +668,25 @@ function showAddFeeModal() {
       paid: 0,
       pending: amount,
       status: 'pending',
-      feeId: feeId // <-- Added
+      feeId
     };
-    const result = await createData('feeRecords', newFee);
-    window.FEE_RECORDS.push(result);
-    window.showToast('Fee record added', 'success');
-    applyFeeFilters();
-    if (window.renderDashboard) window.renderDashboard();
-    window.closeModal();
-  });
 
-  // Conditional logic for Others
-  setTimeout(() => {
-    const feeType = document.getElementById('addFeeType');
-    const customGroup = document.getElementById('addCustomFeeGroup');
-    if (feeType && customGroup) {
-      feeType.addEventListener('change', function() {
-        customGroup.style.display = this.value === 'Others' ? 'block' : 'none';
-      });
-      customGroup.style.display = feeType.value === 'Others' ? 'block' : 'none';
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Adding...';
+
+    try {
+      const result = await createData('feeRecords', newFee);
+      window.FEE_RECORDS.push(result);
+      window.showToast('Fee record added', 'success');
+      window.navigateTo('fees');
+    } catch (error) {
+      console.error('Add fee error:', error);
+      window.showToast('Failed to add fee record. Please try again.', 'error');
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Add Fee';
     }
-  }, 50);
+  });
 }
 
 // ============================================================
@@ -686,7 +702,6 @@ async function deleteFee(id) {
     return;
   }
 
-  // If fee type is 'Payment', also delete associated payment record
   let paymentToDelete = null;
   if (fee.feeType === 'Payment') {
     paymentToDelete = window.PAYMENTS.find(p =>
@@ -727,7 +742,6 @@ async function migrateFeeIds() {
 
     const random = Math.floor(1000 + Math.random() * 9000);
     let feeId = `FEE-${random}`;
-    // Check for duplicates in the existing list
     const isDuplicate = fees.some(f => f.feeId === feeId);
     if (isDuplicate) {
       const newRandom = Math.floor(1000 + Math.random() * 9000);
@@ -797,7 +811,7 @@ window.openCollectFeeModal = openCollectFeeModal;
 window.processFeePayment = processFeePayment;
 window.showPaymentHistory = showPaymentHistory;
 window.openBulkCollectModal = openBulkCollectModal;
-window.processBulkCollection = processBulkCollection; // Alias
+window.processBulkCollection = processBulkCollection;
 window.applyFeeFilters = applyFeeFilters;
-window.migrateFeeIds = migrateFeeIds; // <-- Added
-window.migratePaymentIds = migratePaymentIds; // <-- Added
+window.migrateFeeIds = migrateFeeIds;
+window.migratePaymentIds = migratePaymentIds;
