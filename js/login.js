@@ -19,7 +19,7 @@ const WARNING_TIME = 9 * 60 * 1000;
 let inactivityTimer = null;
 let warningTimer = null;
 let logoutInProgress = false;
-let isLogoutModalOpen = false; // NEW: prevents timer from firing while modal is up
+let isLogoutModalOpen = false;
 
 // ============================================================
 // CREATE LOGIN OVERLAY
@@ -162,10 +162,7 @@ function createLoginOverlay() {
   });
 
   document.getElementById('loginBtn')?.addEventListener('click', handleLogin);
-
-  document
-    .getElementById('forgotPasswordBtn')
-    ?.addEventListener('click', handleForgotPassword);
+  document.getElementById('forgotPasswordBtn')?.addEventListener('click', handleForgotPassword);
 }
 
 // ============================================================
@@ -195,7 +192,6 @@ async function handleLogin() {
   }
 
   btn.disabled = true;
-
   if (btnText) btnText.style.display = 'none';
   if (btnSpinner) btnSpinner.style.display = 'inline-block';
 
@@ -203,10 +199,10 @@ async function handleLogin() {
     await loginAdmin(email, password);
 
     const overlay = document.getElementById('loginOverlay');
+    if (overlay) overlay.remove();
 
-    if (overlay) {
-      overlay.remove();
-    }
+    // Show Settings link in sidebar
+    if (window.showSettingsLink) window.showSettingsLink(true);
 
     startInactivityMonitoring();
     setupLogoutButton();
@@ -214,13 +210,13 @@ async function handleLogin() {
     window.showToast?.('Login successful!', 'success');
 
     await window.loadAllData?.();
+    await window.initSettings?.(); // ensure settings are loaded
     window.navigateTo?.('dashboard');
 
   } catch (error) {
     console.error('Login error:', error);
 
     let message = 'Invalid User ID or Password.';
-
     if (error?.code === 'auth/too-many-requests') {
       message = 'Too many login attempts. Please try again later.';
     } else if (error?.code === 'auth/network-request-failed') {
@@ -234,7 +230,6 @@ async function handleLogin() {
 
   } finally {
     btn.disabled = false;
-
     if (btnText) btnText.style.display = 'inline';
     if (btnSpinner) btnSpinner.style.display = 'none';
   }
@@ -264,397 +259,195 @@ async function handleForgotPassword() {
 
   try {
     await sendPasswordReset(email);
-
-    window.showToast?.(
-      'Password reset email sent. Check your inbox.',
-      'success'
-    );
-
+    window.showToast?.('Password reset email sent. Check your inbox.', 'success');
     emailEl.value = '';
-
-    if (passwordEl) {
-      passwordEl.value = '';
-    }
-
+    if (passwordEl) passwordEl.value = '';
   } catch (error) {
     console.error('Password reset error:', error);
-
-    errorEl.textContent =
-      'Unable to send reset email. Please try again.';
-
+    errorEl.textContent = 'Unable to send reset email. Please try again.';
     errorEl.style.display = 'block';
   }
 }
 
 // ============================================================
-// INACTIVITY MONITORING
+// INACTIVITY MONITORING (unchanged)
 // ============================================================
 
 function startInactivityMonitoring() {
   stopInactivityMonitoring();
-
   resetInactivityTimer();
-
-  const activityEvents = [
-    'mousemove',
-    'mousedown',
-    'keydown',
-    'touchstart',
-    'scroll',
-    'click'
-  ];
-
+  const activityEvents = ['mousemove','mousedown','keydown','touchstart','scroll','click'];
   activityEvents.forEach((eventName) => {
-    document.addEventListener(
-      eventName,
-      handleUserActivity,
-      { passive: true }
-    );
+    document.addEventListener(eventName, handleUserActivity, { passive: true });
   });
-
   window.__erpActivityEvents = activityEvents;
 }
-
-// ============================================================
-// STOP INACTIVITY MONITORING
-// ============================================================
 
 function stopInactivityMonitoring() {
   clearTimeout(inactivityTimer);
   clearTimeout(warningTimer);
-
   inactivityTimer = null;
   warningTimer = null;
-
   if (window.__erpActivityEvents) {
     window.__erpActivityEvents.forEach((eventName) => {
-      document.removeEventListener(
-        eventName,
-        handleUserActivity
-      );
+      document.removeEventListener(eventName, handleUserActivity);
     });
-
     window.__erpActivityEvents = null;
   }
 }
 
-// ============================================================
-// USER ACTIVITY
-// ============================================================
-
 function handleUserActivity() {
-  // NEW: If logout modal is open, DO NOT reset timer (we want it paused)
   if (logoutInProgress || isLogoutModalOpen) return;
-
   const warning = document.getElementById('inactivityWarning');
-
-  if (warning) {
-    warning.remove();
-  }
-
+  if (warning) warning.remove();
   resetInactivityTimer();
 }
-
-// ============================================================
-// RESET INACTIVITY TIMER
-// ============================================================
 
 function resetInactivityTimer() {
   clearTimeout(inactivityTimer);
   clearTimeout(warningTimer);
-
-  warningTimer = setTimeout(() => {
-    showInactivityWarning();
-  }, WARNING_TIME);
-
-  inactivityTimer = setTimeout(() => {
-    handleAutomaticLogout();
-  }, INACTIVITY_LIMIT);
+  warningTimer = setTimeout(() => showInactivityWarning(), WARNING_TIME);
+  inactivityTimer = setTimeout(() => handleAutomaticLogout(), INACTIVITY_LIMIT);
 }
-
-// ============================================================
-// INACTIVITY WARNING
-// ============================================================
 
 function showInactivityWarning() {
   if (document.getElementById('inactivityWarning')) return;
-
   const warning = document.createElement('div');
-
   warning.id = 'inactivityWarning';
-
   warning.style.cssText = `
-    position:fixed;
-    left:50%;
-    top:20px;
-    transform:translateX(-50%);
-    z-index:10001;
-    background:white;
-    border:1px solid #e2e8f0;
-    border-radius:8px;
-    padding:1rem 1.25rem;
-    box-shadow:0 10px 30px rgba(0,0,0,.15);
-    max-width:90%;
-    text-align:center;
+    position:fixed; left:50%; top:20px; transform:translateX(-50%);
+    z-index:10001; background:white; border:1px solid #e2e8f0;
+    border-radius:8px; padding:1rem 1.25rem;
+    box-shadow:0 10px 30px rgba(0,0,0,.15); max-width:90%; text-align:center;
   `;
-
   warning.innerHTML = `
-    <div style="font-weight:600;color:#0f172a;margin-bottom:.35rem;">
-      Session Expiring
-    </div>
-
+    <div style="font-weight:600;color:#0f172a;margin-bottom:.35rem;">Session Expiring</div>
     <div style="font-size:.85rem;color:#64748b;margin-bottom:.75rem;">
-      You have been inactive for 9 minutes.
-      You will be logged out in 1 minute.
+      You have been inactive for 9 minutes. You will be logged out in 1 minute.
     </div>
-
-    <button
-      id="stayLoggedInBtn"
-      class="btn btn-primary"
-      type="button"
-      style="padding:.45rem .9rem;"
-    >
+    <button id="stayLoggedInBtn" class="btn btn-primary" type="button" style="padding:.45rem .9rem;">
       Stay Logged In
     </button>
   `;
-
   document.body.appendChild(warning);
-
-  document
-    .getElementById('stayLoggedInBtn')
-    ?.addEventListener('click', () => {
-      warning.remove();
-      resetInactivityTimer();
-    });
+  document.getElementById('stayLoggedInBtn')?.addEventListener('click', () => {
+    warning.remove();
+    resetInactivityTimer();
+  });
 }
-
-// ============================================================
-// AUTOMATIC LOGOUT
-// ============================================================
 
 async function handleAutomaticLogout() {
-  if (logoutInProgress || isLogoutModalOpen) return; // NEW: block if modal open
-
+  if (logoutInProgress || isLogoutModalOpen) return;
   logoutInProgress = true;
   stopInactivityMonitoring();
-
   const warning = document.getElementById('inactivityWarning');
-
-  if (warning) {
-    warning.remove();
-  }
-
+  if (warning) warning.remove();
   try {
     await logoutAdmin();
-
   } catch (error) {
     console.error('Automatic logout error:', error);
-
   } finally {
     logoutInProgress = false;
-
     showLoggedOutState();
-
-    window.showToast?.(
-      'You have been logged out due to inactivity.',
-      'info'
-    );
+    window.showToast?.('You have been logged out due to inactivity.', 'info');
+    if (window.showSettingsLink) window.showSettingsLink(false);
   }
 }
 
 // ============================================================
-// LOGOUT CONFIRMATION
+// LOGOUT CONFIRMATION (unchanged)
 // ============================================================
 
 function showLogoutConfirmation() {
   if (document.getElementById('logoutConfirmOverlay')) return;
-
-  // NEW: Pause inactivity timer immediately when modal opens
   isLogoutModalOpen = true;
   stopInactivityMonitoring();
 
   const overlay = document.createElement('div');
-
   overlay.id = 'logoutConfirmOverlay';
-
   overlay.style.cssText = `
-    position:fixed;
-    inset:0;
-    background:rgba(0,0,0,.5);
-    backdrop-filter:blur(5px);
-    z-index:10000;
-    display:flex;
-    align-items:center;
-    justify-content:center;
+    position:fixed; inset:0; background:rgba(0,0,0,.5); backdrop-filter:blur(5px);
+    z-index:10000; display:flex; align-items:center; justify-content:center;
   `;
-
   const modal = document.createElement('div');
-
   modal.style.cssText = `
-    background:white;
-    width:92%;
-    max-width:380px;
-    border-radius:10px;
-    padding:1.5rem;
-    box-shadow:0 20px 60px rgba(0,0,0,.25);
+    background:white; width:92%; max-width:380px; border-radius:10px;
+    padding:1.5rem; box-shadow:0 20px 60px rgba(0,0,0,.25);
   `;
-
   modal.innerHTML = `
     <div style="margin-bottom:1.25rem;">
-      <h3 style="margin:0 0 .5rem;color:#0f172a;font-size:1.15rem;">
-        Confirm Logout
-      </h3>
-
-      <p style="margin:0;color:#64748b;font-size:.9rem;">
-        Are you sure you want to log out?
-      </p>
+      <h3 style="margin:0 0 .5rem;color:#0f172a;font-size:1.15rem;">Confirm Logout</h3>
+      <p style="margin:0;color:#64748b;font-size:.9rem;">Are you sure you want to log out?</p>
     </div>
-
     <div style="display:flex;justify-content:flex-end;gap:.75rem;">
-      <button
-        id="cancelLogoutBtn"
-        class="btn"
-        type="button"
-        style="padding:.5rem 1rem;"
-      >
-        Cancel
-      </button>
-
-      <button
-        id="confirmLogoutBtn"
-        class="btn btn-primary"
-        type="button"
-        style="padding:.5rem 1rem;"
-      >
+      <button id="cancelLogoutBtn" class="btn" type="button" style="padding:.5rem 1rem;">Cancel</button>
+      <button id="confirmLogoutBtn" class="btn btn-primary" type="button" style="padding:.5rem 1rem;">
         <span id="confirmLogoutText">Log Out</span>
-
-        <span
-          id="confirmLogoutSpinner"
-          style="display:none;"
-        >
-          <span
-            class="loading-spinner"
-            style="width:18px;height:18px;border-width:3px;"
-          ></span>
+        <span id="confirmLogoutSpinner" style="display:none;">
+          <span class="loading-spinner" style="width:18px;height:18px;border-width:3px;"></span>
         </span>
       </button>
     </div>
   `;
-
   overlay.appendChild(modal);
   document.body.appendChild(overlay);
 
-  document
-    .getElementById('cancelLogoutBtn')
-    ?.addEventListener('click', () => {
-      overlay.remove();
-      isLogoutModalOpen = false; // NEW: allow timer
-      if (!logoutInProgress) {
-        startInactivityMonitoring(); // NEW: restart timer on cancel
-      }
-    });
+  document.getElementById('cancelLogoutBtn')?.addEventListener('click', () => {
+    overlay.remove();
+    isLogoutModalOpen = false;
+    if (!logoutInProgress) startInactivityMonitoring();
+  });
 
-  document
-    .getElementById('confirmLogoutBtn')
-    ?.addEventListener('click', handleManualLogout);
+  document.getElementById('confirmLogoutBtn')?.addEventListener('click', handleManualLogout);
 }
-
-// ============================================================
-// MANUAL LOGOUT
-// ============================================================
 
 async function handleManualLogout() {
   if (logoutInProgress) return;
-
   logoutInProgress = true;
-  isLogoutModalOpen = false; // NEW: reset flag
-
+  isLogoutModalOpen = false;
   const confirmBtn = document.getElementById('confirmLogoutBtn');
   const confirmText = document.getElementById('confirmLogoutText');
   const spinner = document.getElementById('confirmLogoutSpinner');
-
   if (confirmBtn) confirmBtn.disabled = true;
   if (confirmText) confirmText.style.display = 'none';
   if (spinner) spinner.style.display = 'inline-block';
 
-  // Ensure timers are dead
   stopInactivityMonitoring();
 
   try {
     await logoutAdmin();
-
     showLoggedOutState();
-
-    window.showToast?.(
-      'You have been logged out.',
-      'success'
-    );
-
+    window.showToast?.('You have been logged out.', 'success');
+    if (window.showSettingsLink) window.showSettingsLink(false);
   } catch (error) {
     console.error('Logout error:', error);
-
     if (confirmBtn) confirmBtn.disabled = false;
     if (confirmText) confirmText.style.display = 'inline';
     if (spinner) spinner.style.display = 'none';
-
-    // On error, restart the timer
     startInactivityMonitoring();
-
-    window.showToast?.(
-      'Unable to log out. Please try again.',
-      'error'
-    );
-
+    window.showToast?.('Unable to log out. Please try again.', 'error');
   } finally {
     logoutInProgress = false;
   }
 }
 
-// ============================================================
-// SHOW LOGGED-OUT STATE
-// ============================================================
-
 function showLoggedOutState() {
-  const confirmation =
-    document.getElementById('logoutConfirmOverlay');
-
-  if (confirmation) {
-    confirmation.remove();
-  }
-
-  const warning =
-    document.getElementById('inactivityWarning');
-
-  if (warning) {
-    warning.remove();
-  }
-
-  const loginOverlay =
-    document.getElementById('loginOverlay');
-
-  if (!loginOverlay) {
-    createLoginOverlay();
-  }
+  const confirmation = document.getElementById('logoutConfirmOverlay');
+  if (confirmation) confirmation.remove();
+  const warning = document.getElementById('inactivityWarning');
+  if (warning) warning.remove();
+  const loginOverlay = document.getElementById('loginOverlay');
+  if (!loginOverlay) createLoginOverlay();
 }
-
-// ============================================================
-// CONNECT EXISTING LOGOUT BUTTON
-// ============================================================
 
 function setupLogoutButton() {
   const logoutBtn = document.getElementById('logoutBtn');
-
   if (!logoutBtn) return;
-
-  if (logoutBtn.dataset.logoutHandlerAttached === 'true') {
-    return;
-  }
-
+  if (logoutBtn.dataset.logoutHandlerAttached === 'true') return;
   logoutBtn.dataset.logoutHandlerAttached = 'true';
-
   logoutBtn.addEventListener('click', (event) => {
     event.preventDefault();
-    event.stopImmediatePropagation(); // NEW: stronger prevention
+    event.stopImmediatePropagation();
     showLogoutConfirmation();
   });
 }
@@ -665,16 +458,14 @@ function setupLogoutButton() {
 
 document.addEventListener('DOMContentLoaded', async () => {
   await new Promise((resolve) => setTimeout(resolve, 200));
-
   const user = await getCurrentUser();
-
   if (!user) {
     createLoginOverlay();
   } else {
     console.log('Already authenticated as:', user.email);
-
     startInactivityMonitoring();
     setupLogoutButton();
+    if (window.showSettingsLink) window.showSettingsLink(true);
   }
 });
 
@@ -683,19 +474,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 // ============================================================
 
 const style = document.createElement('style');
-
 style.textContent = `
   #loginOverlay input:focus {
     outline:none;
     border-color:#3b82f6 !important;
     box-shadow:0 0 0 3px rgba(59,130,246,.1);
   }
-
   #loginOverlay button:disabled,
   #logoutConfirmOverlay button:disabled {
     opacity:.7;
     cursor:not-allowed;
   }
 `;
-
 document.head.appendChild(style);
