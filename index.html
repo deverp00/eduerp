@@ -13,6 +13,57 @@
     <!-- Main Styles -->
     <link rel="stylesheet" href="style.css" />
 
+    <!-- Add Page Styles (Full‑Page Forms) -->
+    <style>
+        .add-page-section .add-form-container {
+            max-width: 600px;
+            margin: 2rem auto;
+            padding: 2rem;
+            background: white;
+            border-radius: var(--radius, 8px);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        .add-page-section .add-form-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        .add-page-section .add-form-header h2 {
+            margin: 0;
+        }
+        .add-page-section .add-form-body .form-group {
+            margin-bottom: 1rem;
+        }
+        .add-page-section .add-form-body .form-group label {
+            display: block;
+            font-weight: 500;
+            font-size: 0.9rem;
+            margin-bottom: 0.25rem;
+        }
+        .add-page-section .add-form-body .form-group input,
+        .add-page-section .add-form-body .form-group select {
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid var(--gray-200, #e2e8f0);
+            border-radius: var(--radius, 8px);
+            font-size: 0.9rem;
+            box-sizing: border-box;
+        }
+        /* Hide sidebar and topbar on add pages */
+        body.add-page .sidebar,
+        body.add-page .topbar,
+        body.add-page .overlay {
+            display: none !important;
+        }
+        body.add-page .main-content {
+            margin-left: 0 !important;
+        }
+        body.add-page .page-container {
+            padding-top: 0 !important;
+        }
+    </style>
+
     <!-- Firebase Import Map (must be before any module scripts) -->
     <script type="importmap">
     {
@@ -262,89 +313,84 @@
             </section>
 
             <!-- ===== FEE MANAGEMENT ===== -->
-<section class="page-section" id="page-fees">
-    <!-- Analytics Dashboard -->
-    <div class="fee-analytics-grid" id="feeAnalyticsGrid"></div>
+            <section class="page-section" id="page-fees">
+                <div class="fee-analytics-grid" id="feeAnalyticsGrid"></div>
 
-    <!-- Filters (Auto-apply) -->
-    <div class="fee-filters">
-        <div class="filter-group" style="flex:1; min-width:150px;">
-            <label style="font-size:0.75rem; font-weight:500; color:var(--gray-500); display:block; margin-bottom:0.2rem;">Academic Session</label>
-            <select id="feeSession" style="width:100%; padding:0.4rem 2rem 0.4rem 0.75rem; border:1px solid var(--gray-200); border-radius:var(--radius); font-size:0.85rem;">
-                <option value="2025-26">2025-26</option>
-                <option value="2024-25">2024-25</option>
-            </select>
-        </div>
-        <div class="filter-group" style="flex:1; min-width:100px;">
-            <label style="font-size:0.75rem; font-weight:500; color:var(--gray-500); display:block; margin-bottom:0.2rem;">Class</label>
-            <select id="feeClassFilter" style="width:100%; padding:0.4rem 2rem 0.4rem 0.75rem; border:1px solid var(--gray-200); border-radius:var(--radius); font-size:0.85rem;">
-                <option value="all">All</option>
-                <option value="1">Class 1</option><option value="2">Class 2</option>
-                <option value="3">Class 3</option><option value="4">Class 4</option>
-                <option value="5">Class 5</option><option value="6">Class 6</option>
-                <option value="7">Class 7</option><option value="8">Class 8</option>
-                <option value="9">Class 9</option><option value="10">Class 10</option>
-            </select>
-        </div>
-        <div class="filter-group" style="flex:1; min-width:120px;">
-            <label style="font-size:0.75rem; font-weight:500; color:var(--gray-500); display:block; margin-bottom:0.2rem;">Month</label>
-            <select id="feeMonthFilter" style="width:100%; padding:0.4rem 2rem 0.4rem 0.75rem; border:1px solid var(--gray-200); border-radius:var(--radius); font-size:0.85rem;">
-                <option value="all">All</option>
-                <option value="January">January</option><option value="February">February</option>
-                <option value="March">March</option><option value="April">April</option>
-                <option value="May">May</option><option value="June">June</option>
-                <option value="July">July</option><option value="August">August</option>
-                <option value="September">September</option><option value="October">October</option>
-                <option value="November">November</option><option value="December">December</option>
-            </select>
-        </div>
-        <div class="filter-group" style="flex:1; min-width:100px;">
-            <label style="font-size:0.75rem; font-weight:500; color:var(--gray-500); display:block; margin-bottom:0.2rem;">Payment Status</label>
-            <select id="feeStatusFilter" style="width:100%; padding:0.4rem 2rem 0.4rem 0.75rem; border:1px solid var(--gray-200); border-radius:var(--radius); font-size:0.85rem;">
-                <option value="all">All</option>
-                <option value="paid">Paid</option>
-                <option value="pending">Pending</option>
-                <option value="overdue">Overdue</option>
-            </select>
-        </div>
-    </div>
+                <div class="fee-filters">
+                    <div class="filter-group" style="flex:1; min-width:150px;">
+                        <label style="font-size:0.75rem; font-weight:500; color:var(--gray-500); display:block; margin-bottom:0.2rem;">Academic Session</label>
+                        <select id="feeSession" style="width:100%; padding:0.4rem 2rem 0.4rem 0.75rem; border:1px solid var(--gray-200); border-radius:var(--radius); font-size:0.85rem;">
+                            <option value="2025-26">2025-26</option>
+                            <option value="2024-25">2024-25</option>
+                        </select>
+                    </div>
+                    <div class="filter-group" style="flex:1; min-width:100px;">
+                        <label style="font-size:0.75rem; font-weight:500; color:var(--gray-500); display:block; margin-bottom:0.2rem;">Class</label>
+                        <select id="feeClassFilter" style="width:100%; padding:0.4rem 2rem 0.4rem 0.75rem; border:1px solid var(--gray-200); border-radius:var(--radius); font-size:0.85rem;">
+                            <option value="all">All</option>
+                            <option value="1">Class 1</option><option value="2">Class 2</option>
+                            <option value="3">Class 3</option><option value="4">Class 4</option>
+                            <option value="5">Class 5</option><option value="6">Class 6</option>
+                            <option value="7">Class 7</option><option value="8">Class 8</option>
+                            <option value="9">Class 9</option><option value="10">Class 10</option>
+                        </select>
+                    </div>
+                    <div class="filter-group" style="flex:1; min-width:120px;">
+                        <label style="font-size:0.75rem; font-weight:500; color:var(--gray-500); display:block; margin-bottom:0.2rem;">Month</label>
+                        <select id="feeMonthFilter" style="width:100%; padding:0.4rem 2rem 0.4rem 0.75rem; border:1px solid var(--gray-200); border-radius:var(--radius); font-size:0.85rem;">
+                            <option value="all">All</option>
+                            <option value="January">January</option><option value="February">February</option>
+                            <option value="March">March</option><option value="April">April</option>
+                            <option value="May">May</option><option value="June">June</option>
+                            <option value="July">July</option><option value="August">August</option>
+                            <option value="September">September</option><option value="October">October</option>
+                            <option value="November">November</option><option value="December">December</option>
+                        </select>
+                    </div>
+                    <div class="filter-group" style="flex:1; min-width:100px;">
+                        <label style="font-size:0.75rem; font-weight:500; color:var(--gray-500); display:block; margin-bottom:0.2rem;">Payment Status</label>
+                        <select id="feeStatusFilter" style="width:100%; padding:0.4rem 2rem 0.4rem 0.75rem; border:1px solid var(--gray-200); border-radius:var(--radius); font-size:0.85rem;">
+                            <option value="all">All</option>
+                            <option value="paid">Paid</option>
+                            <option value="pending">Pending</option>
+                            <option value="overdue">Overdue</option>
+                        </select>
+                    </div>
+                </div>
 
-    <!-- Universal Search -->
-    <div class="fee-search-bar" style="display:flex; gap:0.75rem; margin-bottom:1rem; align-items:center; background:white; padding:0.75rem 1rem; border-radius:var(--radius); border:1px solid var(--gray-200);">
-        <div style="flex:1; position:relative;">
-            <input type="text" id="feeUniversalSearch" placeholder="Search by Name, Admission No., Roll No., Mobile, Guardian..." style="width:100%; padding:0.5rem 0.75rem; border:1px solid var(--gray-200); border-radius:var(--radius); font-size:0.9rem; padding-left:2.2rem;" />
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position:absolute; left:0.6rem; top:50%; transform:translateY(-50%); color:var(--gray-400);"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <div id="feeSearchSuggestions" style="position:absolute; top:100%; left:0; right:0; background:white; border:1px solid var(--gray-200); border-radius:0 0 var(--radius) var(--radius); max-height:200px; overflow-y:auto; z-index:100; display:none;"></div>
-        </div>
-        <button class="btn btn-primary" id="feeCollectBulkBtn">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Bulk Collect
-        </button>
-    </div>
+                <div class="fee-search-bar" style="display:flex; gap:0.75rem; margin-bottom:1rem; align-items:center; background:white; padding:0.75rem 1rem; border-radius:var(--radius); border:1px solid var(--gray-200);">
+                    <div style="flex:1; position:relative;">
+                        <input type="text" id="feeUniversalSearch" placeholder="Search by Name, Admission No., Roll No., Mobile, Guardian..." style="width:100%; padding:0.5rem 0.75rem; border:1px solid var(--gray-200); border-radius:var(--radius); font-size:0.9rem; padding-left:2.2rem;" />
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position:absolute; left:0.6rem; top:50%; transform:translateY(-50%); color:var(--gray-400);"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        <div id="feeSearchSuggestions" style="position:absolute; top:100%; left:0; right:0; background:white; border:1px solid var(--gray-200); border-radius:0 0 var(--radius) var(--radius); max-height:200px; overflow-y:auto; z-index:100; display:none;"></div>
+                    </div>
+                    <button class="btn btn-primary" id="feeCollectBulkBtn">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        Bulk Collect
+                    </button>
+                </div>
 
-    <!-- Student Detail Panel -->
-    <div id="feeStudentDetail" style="display:none; background:white; border-radius:var(--radius); border:1px solid var(--gray-200); padding:1.5rem; margin-bottom:1.5rem; animation:fadeIn 300ms ease;"></div>
+                <div id="feeStudentDetail" style="display:none; background:white; border-radius:var(--radius); border:1px solid var(--gray-200); padding:1.5rem; margin-bottom:1.5rem; animation:fadeIn 300ms ease;"></div>
 
-    <!-- Table with Toolbar -->
-    <div class="page-toolbar" style="margin-bottom:0.5rem;">
-        <div class="toolbar-left"></div>
-        <div class="toolbar-right" style="gap:0.5rem;">
-            <button class="btn btn-secondary" id="feeExportPdf"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> PDF</button>
-            <button class="btn btn-secondary" id="feeExportExcel"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="16" x2="16" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg> Excel</button>
-            <button class="btn btn-secondary" id="feeExportCsv"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="16" x2="16" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg> CSV</button>
-            <button class="btn btn-primary" id="addFeeBtn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Fee</button>
-        </div>
-    </div>
+                <div class="page-toolbar" style="margin-bottom:0.5rem;">
+                    <div class="toolbar-left"></div>
+                    <div class="toolbar-right" style="gap:0.5rem;">
+                        <button class="btn btn-secondary" id="feeExportPdf"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> PDF</button>
+                        <button class="btn btn-secondary" id="feeExportExcel"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="16" x2="16" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg> Excel</button>
+                        <button class="btn btn-secondary" id="feeExportCsv"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="16" x2="16" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg> CSV</button>
+                        <button class="btn btn-primary" id="addFeeBtn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Fee</button>
+                    </div>
+                </div>
 
-    <div class="table-wrapper">
-        <table class="data-table" id="feeTable">
-            <thead>
-                <tr><th>#</th><th>Student</th><th>Class</th><th>Fee Type</th><th>Amount</th><th>Paid</th><th>Pending</th><th>Status</th><th>Actions</th></tr>
-            </thead>
-            <tbody id="feeTableBody"></tbody>
-        </table>
-    </div>
-</section>
+                <div class="table-wrapper">
+                    <table class="data-table" id="feeTable">
+                        <thead>
+                            <tr><th>#</th><th>Student</th><th>Class</th><th>Fee Type</th><th>Amount</th><th>Paid</th><th>Pending</th><th>Status</th><th>Actions</th></tr>
+                        </thead>
+                        <tbody id="feeTableBody"></tbody>
+                    </table>
+                </div>
+            </section>
 
             <!-- ===== SALARY ===== -->
             <section class="page-section" id="page-salary">
@@ -434,15 +480,169 @@
                     <button class="btn btn-secondary" id="exportAnalyticsExcel"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="16" x2="16" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg> Export Excel</button>
                 </div>
             </section>
+
+            <!-- ===== FULL‑PAGE ADD FORMS (NEW) ===== -->
+
+            <!-- ADD STUDENT -->
+            <section class="page-section add-page-section" id="page-add-student">
+                <div class="add-form-container">
+                    <div class="add-form-header">
+                        <h2>Add Student</h2>
+                        <button class="btn btn-secondary" onclick="window.navigateTo('students')">Cancel</button>
+                    </div>
+                    <div class="add-form-body">
+                        <div class="form-group"><label>Name</label><input type="text" id="addStudentName" placeholder="Full name" /></div>
+                        <div class="form-group"><label>Class</label>
+                            <select id="addStudentClass">
+                                <option value="1">Class 1</option><option value="2">Class 2</option>
+                                <option value="3">Class 3</option><option value="4">Class 4</option>
+                                <option value="5">Class 5</option><option value="6">Class 6</option>
+                                <option value="7">Class 7</option><option value="8">Class 8</option>
+                                <option value="9">Class 9</option><option value="10">Class 10</option>
+                            </select>
+                        </div>
+                        <div class="form-group"><label>Section</label>
+                            <select id="addStudentSection">
+                                <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="NA">NA</option>
+                            </select>
+                        </div>
+                        <div class="form-group"><label>Roll No</label><input type="number" id="addStudentRoll" placeholder="Roll number" /></div>
+                        <div class="form-group"><label>Fee Status</label>
+                            <select id="addStudentFeeStatus">
+                                <option value="paid">Paid</option><option value="pending">Pending</option><option value="overdue">Overdue</option>
+                            </select>
+                        </div>
+                        <div class="form-group"><label>Admission No</label><input type="text" id="addStudentAdmission" placeholder="ADM001" /></div>
+                        <div class="form-group"><label>Mobile</label><input type="text" id="addStudentMobile" placeholder="9876543210" /></div>
+                        <div class="form-group"><label>Guardian</label><input type="text" id="addStudentGuardian" placeholder="Mr. Sharma" /></div>
+                        <button class="btn btn-primary" id="addStudentSubmitBtn">Add Student</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ADD TEACHER / STAFF -->
+            <section class="page-section add-page-section" id="page-add-teacher">
+                <div class="add-form-container">
+                    <div class="add-form-header">
+                        <h2>Add Teacher / Staff</h2>
+                        <button class="btn btn-secondary" onclick="window.navigateTo('teachers')">Cancel</button>
+                    </div>
+                    <div class="add-form-body">
+                        <div class="form-group"><label>Name</label><input type="text" id="addStaffName" placeholder="Full name" /></div>
+                        <div class="form-group"><label>Role</label>
+                            <select id="addStaffRole">
+                                <option value="teacher">Teacher</option><option value="staff">Staff</option>
+                            </select>
+                        </div>
+                        <div class="form-group"><label>Designation</label>
+                            <select id="addStaffDesignation">
+                                <option value="Principal">Principal</option><option value="Head Master">Head Master</option>
+                                <option value="Assistant Teacher">Assistant Teacher</option><option value="Subject Teacher">Subject Teacher</option>
+                                <option value="Administration">Administration</option><option value="Staff">Staff</option><option value="Peon">Peon</option>
+                            </select>
+                        </div>
+                        <div class="form-group" id="addSubjectGroup" style="display:none;">
+                            <label>Subject</label>
+                            <select id="addStaffSubject">
+                                <option value="Mathematics">Mathematics</option><option value="Science">Science</option>
+                                <option value="English">English</option><option value="Hindi">Hindi</option>
+                                <option value="Social Studies">Social Studies</option><option value="Computer Science">Computer Science</option>
+                                <option value="Physical Education">Physical Education</option><option value="Arts">Arts</option>
+                                <option value="Music">Music</option><option value="N/A">N/A</option>
+                            </select>
+                        </div>
+                        <div class="form-group"><label>Email</label><input type="email" id="addStaffEmail" placeholder="email@school.com" /></div>
+                        <button class="btn btn-primary" id="addStaffSubmitBtn">Add</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ADD FEE -->
+            <section class="page-section add-page-section" id="page-add-fee">
+                <div class="add-form-container">
+                    <div class="add-form-header">
+                        <h2>Add Fee Record</h2>
+                        <button class="btn btn-secondary" onclick="window.navigateTo('fees')">Cancel</button>
+                    </div>
+                    <div class="add-form-body">
+                        <div class="form-group"><label>Student</label>
+                            <select id="addFeeStudent">
+                                <!-- Options will be populated by JS -->
+                            </select>
+                        </div>
+                        <div class="form-group"><label>Fee Type</label>
+                            <select id="addFeeType">
+                                <option value="Admission Fee">Admission Fee</option><option value="Monthly Fee">Monthly Fee</option>
+                                <option value="Annual Fee">Annual Fee</option><option value="Examination Fee">Examination Fee</option>
+                                <option value="Others">Others</option>
+                            </select>
+                        </div>
+                        <div class="form-group" id="addCustomFeeGroup" style="display:none;">
+                            <label>Custom Fee Description</label><input type="text" id="addCustomFee" placeholder="Enter custom fee description" />
+                        </div>
+                        <div class="form-group"><label>Amount (₹)</label><input type="number" id="addFeeAmount" placeholder="5000" /></div>
+                        <button class="btn btn-primary" id="addFeeSubmitBtn">Add Fee</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ADD SALARY -->
+            <section class="page-section add-page-section" id="page-add-salary">
+                <div class="add-form-container">
+                    <div class="add-form-header">
+                        <h2>Add Salary</h2>
+                        <button class="btn btn-secondary" onclick="window.navigateTo('salary')">Cancel</button>
+                    </div>
+                    <div class="add-form-body">
+                        <div class="form-group"><label>Month</label>
+                            <select id="addSalaryMonth">
+                                <option value="January">January</option><option value="February">February</option>
+                                <option value="March">March</option><option value="April">April</option>
+                                <option value="May">May</option><option value="June">June</option>
+                                <option value="July">July</option><option value="August">August</option>
+                                <option value="September">September</option><option value="October">October</option>
+                                <option value="November">November</option><option value="December">December</option>
+                            </select>
+                        </div>
+                        <div class="form-group"><label>Year</label>
+                            <select id="addSalaryYear">
+                                <option value="2023">2023</option><option value="2024">2024</option>
+                                <option value="2025" selected>2025</option><option value="2026">2026</option>
+                            </select>
+                        </div>
+                        <div class="form-group"><label>Teacher</label>
+                            <select id="addSalaryEmployee">
+                                <!-- Options populated by JS -->
+                            </select>
+                        </div>
+                        <div class="form-group"><label>Amount (₹)</label><input type="number" id="addSalaryAmount" placeholder="Enter salary amount" /></div>
+                        <div class="form-group"><label>Status</label>
+                            <select id="addSalaryStatus">
+                                <option value="paid">Paid</option><option value="pending">Pending</option>
+                            </select>
+                        </div>
+                        <div class="form-group"><label>Payment Method</label>
+                            <select id="addSalaryPaymentMethod">
+                                <option value="">— Select —</option>
+                                <option value="Bank Transfer">Bank Transfer</option><option value="Cash">Cash</option>
+                                <option value="Cheque">Cheque</option><option value="Digital Wallet">Digital Wallet</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-primary" id="addSalarySubmitBtn">Add Salary</button>
+                    </div>
+                </div>
+            </section>
+
             <!-- ===== FOOTER ===== -->
-<footer style="text-align:center; padding:1.5rem 0 0.75rem; border-top:1px solid var(--gray-200); margin-top:1rem;">
-    <p style="font-size:0.75rem; color:var(--gray-500); margin:0;">
-        Design and Develop by
-        <a href="https://yadav150.github.io/y-p/index.html" target="_blank" rel="noopener noreferrer" style="color:var(--gray-600); text-decoration:none; font-weight:500;">
-            Yadav Web Technologies
-        </a>
-    </p>
-</footer>
+            <footer style="text-align:center; padding:1.5rem 0 0.75rem; border-top:1px solid var(--gray-200); margin-top:1rem;">
+                <p style="font-size:0.75rem; color:var(--gray-500); margin:0;">
+                    Design and Develop by
+                    <a href="https://yadav150.github.io/y-p/index.html" target="_blank" rel="noopener noreferrer" style="color:var(--gray-600); text-decoration:none; font-weight:500;">
+                        Yadav Web Technologies
+                    </a>
+                </p>
+            </footer>
+        </div>
     </main>
 
     <!-- ===== MODAL CONTAINER ===== -->
