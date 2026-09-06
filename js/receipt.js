@@ -3,19 +3,6 @@
 // ============================================================
 
 // ============================================================
-// SCHOOL INFORMATION (for receipts) – CUSTOMIZE THESE
-// ============================================================
-
-const SCHOOL_INFO = {
-  name: '[Your School Name]',
-  address: '[Your School Address, City, State – Pincode]',
-  code: '[Your School Code]',
-  phone: '[Your Contact Number]',
-  email: '[Your Email]',
-  website: '[Your Website]'
-};
-
-// ============================================================
 // UTILITY: Number to Words (Indian numbering)
 // ============================================================
 
@@ -50,6 +37,25 @@ function numberToWords(num) {
 }
 
 // ============================================================
+// GET SCHOOL INFO FROM SETTINGS
+// ============================================================
+
+function getSchoolInfo() {
+  const s = window.SETTINGS || {
+    schoolName: '[Your School Name]',
+    schoolAddress: '[Your School Address]',
+    schoolCode: '[Your School Code]',
+    schoolPhone: '[Your Contact Number]',
+    schoolEmail: '[Your Email]',
+    schoolWebsite: '[Your Website]',
+    receiptFooter: 'This is a system-generated receipt. No signature required.',
+    receiptThankYou: 'Thank you for your payment.',
+    currencySymbol: '₹',
+  };
+  return s;
+}
+
+// ============================================================
 // SHOW RECEIPT (Modal)
 // ============================================================
 
@@ -66,7 +72,7 @@ function showReceipt(id) {
     return;
   }
 
-  // Use stored receipt number if available, else generate fallback
+  const s = getSchoolInfo();
   const receiptNumber = fee.receiptNo || `RCP-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
   const date = new Date().toLocaleDateString('en-IN', {
     day: '2-digit',
@@ -74,47 +80,33 @@ function showReceipt(id) {
     year: 'numeric'
   });
 
-  // Find associated payment record (if any)
   const payment = window.PAYMENTS.find(p => p.studentId === student.id && p.amount === fee.amount && p.status === fee.status);
   const paymentMethod = payment ? payment.method : 'N/A';
-  const paymentStatus = fee.status;
-
   const statusClass = fee.status === 'paid' ? 'status-paid' : (fee.status === 'pending' ? 'status-pending' : 'status-overdue');
   const amountInWords = numberToWords(fee.amount);
-
-  // Academic year – get from global or default
-  const academicYear = window.ACADEMIC_YEAR || '2025-26';
-
-  // Use feeId if available, else fallback to id
+  const academicYear = window.SETTINGS?.academicYear || '2025-26';
   const displayId = fee.feeId || fee.id || 'N/A';
 
   const receiptHTML = `
     <div class="receipt-wrapper" id="receiptContent">
-      <!-- School Header -->
       <div class="school-header">
-        <h2 class="school-name">${SCHOOL_INFO.name}</h2>
-        <p class="school-address">${SCHOOL_INFO.address}</p>
+        <h2 class="school-name">${s.schoolName}</h2>
+        <p class="school-address">${s.schoolAddress}</p>
         <p class="school-contact">
-          <strong>School Code:</strong> ${SCHOOL_INFO.code} &nbsp;|&nbsp;
-          <strong>Phone:</strong> ${SCHOOL_INFO.phone} &nbsp;|&nbsp;
-          <strong>Email:</strong> ${SCHOOL_INFO.email} &nbsp;|&nbsp;
-          <strong>Web:</strong> ${SCHOOL_INFO.website}
+          <strong>School Code:</strong> ${s.schoolCode} &nbsp;|&nbsp;
+          <strong>Phone:</strong> ${s.schoolPhone} &nbsp;|&nbsp;
+          <strong>Email:</strong> ${s.schoolEmail} &nbsp;|&nbsp;
+          <strong>Web:</strong> ${s.schoolWebsite}
         </p>
       </div>
-
-      <!-- Receipt Title -->
       <div class="receipt-title">
         <h3>Fee Receipt</h3>
         <span class="receipt-number"># ${receiptNumber}</span>
       </div>
-
-      <!-- Receipt Info -->
       <div style="display:flex; justify-content:space-between; font-size:0.85rem; margin-bottom:0.5rem;">
         <span><strong>Date:</strong> ${date}</span>
         <span><strong>Academic Year:</strong> ${academicYear}</span>
       </div>
-
-      <!-- Student Details -->
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.3rem 1rem; background:#f8fafc; padding:0.5rem 1rem; border-radius:6px; margin-bottom:0.75rem; font-size:0.85rem;">
         <div><strong>Student:</strong> ${student.name}</div>
         <div><strong>Class:</strong> ${student.class}${student.section}</div>
@@ -124,21 +116,17 @@ function showReceipt(id) {
         <div><strong>Fee Type:</strong> ${fee.feeType}</div>
         <div><strong>Fee ID:</strong> ${displayId}</div>
       </div>
-
-      <!-- Fee Details -->
       <div class="receipt-details-grid">
-        <div><strong>Amount:</strong> ₹${fee.amount.toLocaleString()}</div>
-        <div><strong>Paid:</strong> ₹${fee.paid.toLocaleString()}</div>
-        <div><strong>Pending:</strong> ₹${fee.pending.toLocaleString()}</div>
+        <div><strong>Amount:</strong> ${s.currencySymbol}${fee.amount.toLocaleString()}</div>
+        <div><strong>Paid:</strong> ${s.currencySymbol}${fee.paid.toLocaleString()}</div>
+        <div><strong>Pending:</strong> ${s.currencySymbol}${fee.pending.toLocaleString()}</div>
         <div><strong>Status:</strong> <span class="status-badge ${statusClass}">${fee.status}</span></div>
         <div><strong>Payment Method:</strong> ${paymentMethod}</div>
         <div><strong>Amount in Words:</strong> ${amountInWords}</div>
       </div>
-
-      <!-- Footer -->
       <div class="receipt-footer">
-        This is a system‑generated receipt. No signature required.
-        <br />Thank you for your payment.
+        ${s.receiptFooter}
+        <br />${s.receiptThankYou}
       </div>
     </div>
   `;
@@ -181,17 +169,17 @@ function downloadReceiptPDF(id) {
     return;
   }
 
+  const s = getSchoolInfo();
   const receiptNumber = fee.receiptNo || `RCP-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
   const date = new Date().toLocaleDateString('en-IN', {
     day: '2-digit',
     month: 'short',
     year: 'numeric'
   });
-
   const payment = window.PAYMENTS.find(p => p.studentId === student.id && p.amount === fee.amount && p.status === fee.status);
   const paymentMethod = payment ? payment.method : 'N/A';
   const amountInWords = numberToWords(fee.amount);
-  const academicYear = window.ACADEMIC_YEAR || '2025-26';
+  const academicYear = window.SETTINGS?.academicYear || '2025-26';
   const displayId = fee.feeId || fee.id || 'N/A';
 
   const { jsPDF } = window.jspdf;
@@ -207,23 +195,22 @@ function downloadReceiptPDF(id) {
   const margin = 15;
   let y = 20;
 
-  // School Header
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(30, 41, 59);
-  doc.text(SCHOOL_INFO.name, pageWidth / 2, y, { align: 'center' });
+  doc.text(s.schoolName, pageWidth / 2, y, { align: 'center' });
   y += 7;
 
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(71, 85, 105);
-  doc.text(SCHOOL_INFO.address, pageWidth / 2, y, { align: 'center' });
+  doc.text(s.schoolAddress, pageWidth / 2, y, { align: 'center' });
   y += 5;
 
   doc.setFontSize(8);
   doc.setTextColor(100, 116, 139);
   doc.text(
-    `School Code: ${SCHOOL_INFO.code}  |  Phone: ${SCHOOL_INFO.phone}  |  Email: ${SCHOOL_INFO.email}  |  Web: ${SCHOOL_INFO.website}`,
+    `School Code: ${s.schoolCode}  |  Phone: ${s.schoolPhone}  |  Email: ${s.schoolEmail}  |  Web: ${s.schoolWebsite}`,
     pageWidth / 2, y, { align: 'center' }
   );
   y += 8;
@@ -233,7 +220,6 @@ function downloadReceiptPDF(id) {
   doc.line(margin, y, pageWidth - margin, y);
   y += 6;
 
-  // Receipt Title
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(51, 65, 85);
@@ -249,7 +235,6 @@ function downloadReceiptPDF(id) {
   doc.text(`Academic Year: ${academicYear}`, pageWidth - margin, y, { align: 'right' });
   y += 6;
 
-  // Student Details
   const studentRows = [
     ['Student', student.name],
     ['Class', `${student.class}${student.section}`],
@@ -273,11 +258,10 @@ function downloadReceiptPDF(id) {
   });
   y += studentRows.length * 7 + 4;
 
-  // Fee Details
   const feeRows = [
-    ['Amount', `₹${fee.amount.toLocaleString()}`],
-    ['Paid', `₹${fee.paid.toLocaleString()}`],
-    ['Pending', `₹${fee.pending.toLocaleString()}`],
+    ['Amount', `${s.currencySymbol}${fee.amount.toLocaleString()}`],
+    ['Paid', `${s.currencySymbol}${fee.paid.toLocaleString()}`],
+    ['Pending', `${s.currencySymbol}${fee.pending.toLocaleString()}`],
     ['Status', fee.status.toUpperCase()],
     ['Payment Method', paymentMethod],
     ['Amount in Words', amountInWords]
@@ -296,7 +280,6 @@ function downloadReceiptPDF(id) {
   });
   y += feeRows.length * 7 + 6;
 
-  // Footer
   doc.setDrawColor(203, 213, 225);
   doc.setLineWidth(0.3);
   doc.line(margin, y, pageWidth - margin, y);
@@ -304,9 +287,9 @@ function downloadReceiptPDF(id) {
   doc.setFontSize(7);
   doc.setFont('helvetica', 'italic');
   doc.setTextColor(148, 163, 184);
-  doc.text('This is a system‑generated receipt. No signature required.', pageWidth / 2, y, { align: 'center' });
+  doc.text(s.receiptFooter, pageWidth / 2, y, { align: 'center' });
   y += 4;
-  doc.text('Thank you for your payment.', pageWidth / 2, y, { align: 'center' });
+  doc.text(s.receiptThankYou, pageWidth / 2, y, { align: 'center' });
 
   const fileName = `Receipt_${student.name.replace(/\s/g, '_')}_${new Date().toISOString().slice(0,10)}.pdf`;
   doc.save(fileName);
@@ -325,13 +308,14 @@ function viewReceipt(id) {
       window.showToast('Student not found', 'error');
       return;
     }
+    const s = getSchoolInfo();
     const receiptNumber = payment.receiptNo || `RCP-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
     const date = new Date(payment.date).toLocaleDateString('en-IN', {
       day: '2-digit',
       month: 'short',
       year: 'numeric'
     });
-    const academicYear = window.ACADEMIC_YEAR || '2025-26';
+    const academicYear = window.SETTINGS?.academicYear || '2025-26';
     const amountInWords = numberToWords(payment.amount);
     const statusClass = payment.status === 'paid' ? 'status-paid' : 'status-pending';
     const displayId = payment.paymentId || payment.id || 'N/A';
@@ -339,13 +323,13 @@ function viewReceipt(id) {
     const receiptHTML = `
       <div class="receipt-wrapper" id="receiptContent">
         <div class="school-header">
-          <h2 class="school-name">${SCHOOL_INFO.name}</h2>
-          <p class="school-address">${SCHOOL_INFO.address}</p>
+          <h2 class="school-name">${s.schoolName}</h2>
+          <p class="school-address">${s.schoolAddress}</p>
           <p class="school-contact">
-            <strong>School Code:</strong> ${SCHOOL_INFO.code} &nbsp;|&nbsp;
-            <strong>Phone:</strong> ${SCHOOL_INFO.phone} &nbsp;|&nbsp;
-            <strong>Email:</strong> ${SCHOOL_INFO.email} &nbsp;|&nbsp;
-            <strong>Web:</strong> ${SCHOOL_INFO.website}
+            <strong>School Code:</strong> ${s.schoolCode} &nbsp;|&nbsp;
+            <strong>Phone:</strong> ${s.schoolPhone} &nbsp;|&nbsp;
+            <strong>Email:</strong> ${s.schoolEmail} &nbsp;|&nbsp;
+            <strong>Web:</strong> ${s.schoolWebsite}
           </p>
         </div>
         <div class="receipt-title">
@@ -366,14 +350,14 @@ function viewReceipt(id) {
           <div><strong>Payment ID:</strong> ${displayId}</div>
         </div>
         <div class="receipt-details-grid">
-          <div><strong>Amount:</strong> ₹${payment.amount.toLocaleString()}</div>
+          <div><strong>Amount:</strong> ${s.currencySymbol}${payment.amount.toLocaleString()}</div>
           <div><strong>Method:</strong> ${payment.method || 'N/A'}</div>
           <div><strong>Status:</strong> <span class="status-badge ${statusClass}">${payment.status}</span></div>
           <div><strong>Amount in Words:</strong> ${amountInWords}</div>
         </div>
         <div class="receipt-footer">
-          This is a system‑generated receipt. No signature required.
-          <br />Thank you for your payment.
+          ${s.receiptFooter}
+          <br />${s.receiptThankYou}
         </div>
       </div>
     `;
@@ -421,28 +405,25 @@ function printLastReceipt(studentId) {
 }
 
 // ============================================================
-// MIGRATION: Coordinate ID migrations for dependent modules
+// MIGRATION COORDINATOR
 // ============================================================
 
 async function migrateReceiptIds() {
-  console.log('🔄 Checking receipt dependencies...');
+  console.log('Checking receipt dependencies...');
   let totalMigrated = 0;
-
   if (window.migrateFeeIds) {
     const feeCount = await window.migrateFeeIds();
     totalMigrated += feeCount || 0;
   } else {
-    console.warn('⚠️ migrateFeeIds not found – skipping fee ID migration.');
+    console.warn('migrateFeeIds not found – skipping fee ID migration.');
   }
-
   if (window.migratePaymentIds) {
     const paymentCount = await window.migratePaymentIds();
     totalMigrated += paymentCount || 0;
   } else {
-    console.warn('⚠️ migratePaymentIds not found – skipping payment ID migration.');
+    console.warn('migratePaymentIds not found – skipping payment ID migration.');
   }
-
-  console.log(`✅ Receipt migration completed. ${totalMigrated} records updated.`);
+  console.log('Receipt migration completed. ' + totalMigrated + ' records updated.');
   return totalMigrated;
 }
 
@@ -456,4 +437,3 @@ window.viewReceipt = viewReceipt;
 window.reprintReceipt = reprintReceipt;
 window.printLastReceipt = printLastReceipt;
 window.migrateReceiptIds = migrateReceiptIds;
-window.SCHOOL_INFO = SCHOOL_INFO;
