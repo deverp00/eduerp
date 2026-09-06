@@ -90,34 +90,34 @@ function setupStaffConditionalLogic(designationId, subjectGroupId) {
 }
 
 // ============================================================
-// ADD STAFF
+// ADD STAFF – Navigate to full-page form
 // ============================================================
 
 function showAddStaffModal() {
-  const designationOptions = ['Principal', 'Head Master', 'Assistant Teacher', 'Subject Teacher', 'Administration', 'Staff', 'Peon']
-    .map(d => `<option value="${d}">${d}</option>`).join('');
-  const subjectOptions = ['Mathematics', 'Science', 'English', 'Hindi', 'Social Studies', 'Computer Science', 'Physical Education', 'Arts', 'Music', 'N/A']
-    .map(s => `<option value="${s}">${s}</option>`).join('');
+  // Redirect to the dedicated add page
+  window.navigateTo('add-teacher');
+}
 
-  const modalHTML = `
-    <div class="form-group"><label>Name</label><input type="text" id="addStaffName" placeholder="Full name" /></div>
-    <div class="form-group"><label>Role</label>
-      <select id="addStaffRole">
-        <option value="teacher">Teacher</option>
-        <option value="staff">Staff</option>
-      </select>
-    </div>
-    <div class="form-group"><label>Designation</label>
-      <select id="addStaffDesignation">${designationOptions}</select>
-    </div>
-    <div class="form-group" id="addSubjectGroup" style="display:none;">
-      <label>Subject</label>
-      <select id="addStaffSubject">${subjectOptions}</select>
-    </div>
-    <div class="form-group"><label>Email</label><input type="email" id="addStaffEmail" placeholder="email@school.com" /></div>
-  `;
+// ============================================================
+// SUBMIT HANDLER FOR THE FULL-PAGE ADD FORM
+// ============================================================
 
-  window.openModal('Add Teacher / Staff', modalHTML, 'Add', async () => {
+function setupAddStaffForm() {
+  const submitBtn = document.getElementById('addStaffSubmitBtn');
+  if (!submitBtn) return;
+
+  // Conditional logic for designation → subject group
+  const designSelect = document.getElementById('addStaffDesignation');
+  const subjectGroup = document.getElementById('addSubjectGroup');
+  if (designSelect && subjectGroup) {
+    const toggle = () => {
+      subjectGroup.style.display = designSelect.value === 'Subject Teacher' ? 'block' : 'none';
+    };
+    designSelect.addEventListener('change', toggle);
+    toggle(); // initial state
+  }
+
+  submitBtn.addEventListener('click', async function() {
     const name = document.getElementById('addStaffName').value.trim();
     const role = document.getElementById('addStaffRole').value;
     const designation = document.getElementById('addStaffDesignation').value;
@@ -135,30 +135,43 @@ function showAddStaffModal() {
       return;
     }
 
-    const newStaff = { name, role, designation, subDepartment: subject, email };
+    // Generate employee ID (duplicate check not needed here as we let migration handle it later)
+    const random = Math.floor(1000 + Math.random() * 9000);
+    const prefix = role === 'teacher' ? 'TCH' : 'STF';
+    let employeeId = `${prefix}-${random}`;
+    // Simple duplicate check against existing teachers (just in case)
+    const isDuplicate = window.TEACHERS.some(t => t.employeeId === employeeId);
+    if (isDuplicate) {
+      const newRandom = Math.floor(1000 + Math.random() * 9000);
+      employeeId = `${prefix}-${newRandom}`;
+    }
 
-    const btn = document.querySelector('#modal .btn-primary');
-    if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+    const newStaff = {
+      name,
+      role,
+      designation,
+      subDepartment: subject,
+      email,
+      employeeId
+    };
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Saving...';
 
     try {
       const result = await createData('teachers', newStaff);
       window.TEACHERS.push(result);
       window.showToast('Added successfully', 'success');
-      renderStaff();
-      if (window.renderDashboard) window.renderDashboard();
-      window.closeModal();
+      // Redirect back to teachers page
+      window.navigateTo('teachers');
     } catch (error) {
       console.error('Add staff error:', error);
       window.showToast('Failed to add staff. Please try again.', 'error');
     } finally {
-      if (btn) { btn.disabled = false; btn.textContent = 'Add'; }
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Add';
     }
   });
-
-  // Conditional logic
-  setTimeout(() => {
-    setupStaffConditionalLogic('addStaffDesignation', 'addSubjectGroup');
-  }, 50);
 }
 
 // ============================================================
@@ -199,7 +212,6 @@ async function editStaff(id) {
     const subject = document.getElementById('editStaffSubject') ? document.getElementById('editStaffSubject').value : 'N/A';
     const email = document.getElementById('editStaffEmail').value.trim();
 
-    // Validate
     if (!name || !email) {
       window.showToast('Please fill all fields', 'error');
       return;
@@ -230,7 +242,7 @@ async function editStaff(id) {
     }
   });
 
-  // Conditional logic
+  // Conditional logic for edit modal
   setTimeout(() => {
     setupStaffConditionalLogic('editStaffDesignation', 'editSubjectGroup');
   }, 50);
@@ -269,26 +281,21 @@ async function migrateEmployeeIds() {
   let updatedCount = 0;
 
   for (const teacher of teachers) {
-    // Skip if already has an ID
     if (teacher.employeeId) continue;
 
-    // Generate unique ID
     const prefix = teacher.role === 'teacher' ? 'TCH' : 'STF';
     const random = Math.floor(1000 + Math.random() * 9000);
-    const employeeId = `${prefix}-${random}`;
+    let employeeId = `${prefix}-${random}`;
 
     // Check for duplicates in the existing list (just in case)
     const isDuplicate = teachers.some(t => t.employeeId === employeeId);
     if (isDuplicate) {
-      // Regenerate with a different number
       const newRandom = Math.floor(1000 + Math.random() * 9000);
       employeeId = `${prefix}-${newRandom}`;
     }
 
     try {
-      // Update Firebase
       await updateData('teachers', teacher.id, { employeeId });
-      // Update local array
       teacher.employeeId = employeeId;
       updatedCount++;
     } catch (error) {
@@ -325,6 +332,9 @@ document.addEventListener('DOMContentLoaded', () => {
       renderStaff(e.target.value, search);
     });
   }
+
+  // Set up the full-page add form submit
+  setupAddStaffForm();
 });
 
 // ============================================================
@@ -335,4 +345,4 @@ window.renderStaff = renderStaff;
 window.showAddStaffModal = showAddStaffModal;
 window.editStaff = editStaff;
 window.deleteStaff = deleteStaff;
-window.migrateEmployeeIds = migrateEmployeeIds; // <-- Added this
+window.migrateEmployeeIds = migrateEmployeeIds;
