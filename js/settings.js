@@ -129,7 +129,6 @@ function renderSettings() {
   `;
   container.innerHTML = html;
 
-  // Populate panels
   populatePanel('general');
   populatePanel('school');
   populatePanel('students');
@@ -139,10 +138,8 @@ function renderSettings() {
   populatePanel('receipt');
   populatePanel('format');
 
-  // Show first tab
   document.querySelector('.settings-tab').click();
 
-  // Tab switching
   document.querySelectorAll('.settings-tab').forEach(btn => {
     btn.addEventListener('click', function() {
       const tab = this.dataset.tab;
@@ -154,13 +151,8 @@ function renderSettings() {
     });
   });
 
-  // Save button
   document.getElementById('saveSettingsBtn').addEventListener('click', saveSettings);
 }
-
-// ============================================================
-// POPULATE PANELS
-// ============================================================
 
 function populatePanel(panelId) {
   const panel = document.getElementById(`panel-${panelId}`);
@@ -184,7 +176,6 @@ function populatePanel(panelId) {
         </div>
       `;
       break;
-
     case 'school':
       html = `
         <div class="settings-group">
@@ -198,7 +189,6 @@ function populatePanel(panelId) {
         </div>
       `;
       break;
-
     case 'students':
       html = `
         <div class="settings-group">
@@ -215,7 +205,6 @@ function populatePanel(panelId) {
         </div>
       `;
       break;
-
     case 'teachers':
       html = `
         <div class="settings-group">
@@ -227,7 +216,6 @@ function populatePanel(panelId) {
         </div>
       `;
       break;
-
     case 'fee':
       html = `
         <div class="settings-group">
@@ -240,7 +228,6 @@ function populatePanel(panelId) {
         </div>
       `;
       break;
-
     case 'salary':
       html = `
         <div class="settings-group">
@@ -251,7 +238,6 @@ function populatePanel(panelId) {
         </div>
       `;
       break;
-
     case 'receipt':
       html = `
         <div class="settings-group">
@@ -261,7 +247,6 @@ function populatePanel(panelId) {
         </div>
       `;
       break;
-
     case 'format':
       html = `
         <div class="settings-group">
@@ -288,7 +273,6 @@ function populatePanel(panelId) {
 
   panel.innerHTML = html;
 
-  // Apply common styles to form groups
   panel.querySelectorAll('.form-group').forEach(group => {
     group.style.marginBottom = '1rem';
     const label = group.querySelector('label');
@@ -310,14 +294,9 @@ function populatePanel(panelId) {
   });
 }
 
-// ============================================================
-// SAVE ALL SETTINGS
-// ============================================================
-
 async function saveSettings() {
   const settings = {};
 
-  // Gather all values
   settings.academicYear = document.getElementById('set_academicYear')?.value || SETTINGS.academicYear;
   settings.sessionStart = document.getElementById('set_sessionStart')?.value || SETTINGS.sessionStart;
   settings.sessionEnd = document.getElementById('set_sessionEnd')?.value || SETTINGS.sessionEnd;
@@ -371,7 +350,6 @@ async function saveSettings() {
 
   try {
     await saveSettingsToFirebase(SETTINGS);
-    // Refresh modules that may use settings
     if (window.renderDashboard) window.renderDashboard();
     if (window.renderStudents) window.renderStudents();
     if (window.renderStaff) window.renderStaff();
@@ -385,20 +363,28 @@ async function saveSettings() {
   }
 }
 
-// ============================================================
-// INITIALIZE
-// ============================================================
-
 async function initSettings() {
   await loadSettings();
   renderSettings();
 }
 
 // ============================================================
-// EXPOSE GLOBALLY
+// EXPOSE GLOBALLY (for window access)
 // ============================================================
 
 window.initSettings = initSettings;
 window.loadSettings = loadSettings;
 window.renderSettings = renderSettings;
+window.saveSettingsToFirebase = saveSettingsToFirebase;
 window.SETTINGS = SETTINGS;
+
+// ============================================================
+// NAMED EXPORTS (for ES module imports in app.js)
+// ============================================================
+
+export {
+  initSettings,
+  loadSettings,
+  renderSettings,
+  saveSettingsToFirebase
+};
