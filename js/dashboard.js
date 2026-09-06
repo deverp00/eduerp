@@ -8,6 +8,8 @@ function renderDashboard() {
   const fees = window.FEE_RECORDS || [];
   const salary = window.SALARY_RECORDS || [];
   const activities = window.ACTIVITIES || [];
+  const settings = window.SETTINGS || {};
+  const currency = settings.currencySymbol || '₹';
 
   // Calculate KPIs
   const totalStudents = students.length;
@@ -25,10 +27,10 @@ function renderDashboard() {
       <div class="stat-card"><span class="stat-label">Total Students</span><span class="stat-value">${totalStudents}</span></div>
       <div class="stat-card"><span class="stat-label">Total Teachers</span><span class="stat-value">${totalTeachers}</span></div>
       <div class="stat-card"><span class="stat-label">Total Staff</span><span class="stat-value">${totalStaff}</span></div>
-      <div class="stat-card"><span class="stat-label">Fee Collected</span><span class="stat-value">₹${totalCollected.toLocaleString()}</span></div>
-      <div class="stat-card"><span class="stat-label">Pending Fees</span><span class="stat-value">₹${totalPending.toLocaleString()}</span></div>
-      <div class="stat-card"><span class="stat-label">Salary Paid</span><span class="stat-value">₹${totalSalaryPaid.toLocaleString()}</span></div>
-      <div class="stat-card"><span class="stat-label">Salary Pending</span><span class="stat-value">₹${totalSalaryPending.toLocaleString()}</span></div>
+      <div class="stat-card"><span class="stat-label">Fee Collected</span><span class="stat-value">${currency}${totalCollected.toLocaleString()}</span></div>
+      <div class="stat-card"><span class="stat-label">Pending Fees</span><span class="stat-value">${currency}${totalPending.toLocaleString()}</span></div>
+      <div class="stat-card"><span class="stat-label">Salary Paid</span><span class="stat-value">${currency}${totalSalaryPaid.toLocaleString()}</span></div>
+      <div class="stat-card"><span class="stat-label">Salary Pending</span><span class="stat-value">${currency}${totalSalaryPending.toLocaleString()}</span></div>
     `;
   }
 
@@ -84,7 +86,7 @@ document.querySelectorAll('.quick-action-btn').forEach(btn => {
 // ============================================================
 
 async function migrateDashboardIds() {
-  console.log('✅ Dashboard module: No migration needed – reads from global data stores.');
+  console.log('Dashboard module: No migration needed – reads from global data stores.');
   return 0;
 }
 
@@ -93,4 +95,4 @@ async function migrateDashboardIds() {
 // ============================================================
 
 window.renderDashboard = renderDashboard;
-window.migrateDashboardIds = migrateDashboardIds; // <-- Added for consistency
+window.migrateDashboardIds = migrateDashboardIds;
