@@ -48,11 +48,31 @@ const db = getDatabase(app);
 const auth = getAuth(app);
 
 // ============================================================
+// AUTHORIZED ADMIN UID (ONLY this user can login)
+// ============================================================
+
+const AUTHORIZED_ADMIN_UID = "bwPCKxNuFPhOiZi3tMffDVdY0cy2";
+
+// ============================================================
 // AUTHENTICATION HELPERS
 // ============================================================
 
 function loginAdmin(email, password) {
-  return signInWithEmailAndPassword(auth, email, password);
+  return signInWithEmailAndPassword(auth, email, password)
+    .then((userCredential) => {
+      const user = userCredential.user;
+
+      // Enforce UID match – if not match, sign out immediately
+      if (user.uid !== AUTHORIZED_ADMIN_UID) {
+        // Sign out to clear the invalid session
+        return signOut(auth).then(() => {
+          // Throw the same error your login.js expects
+          throw { code: 'auth/unauthorized-admin', message: 'Unauthorized admin access.' };
+        });
+      }
+
+      return userCredential;
+    });
 }
 
 function getCurrentUser() {
