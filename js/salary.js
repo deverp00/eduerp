@@ -54,14 +54,22 @@ function renderSalary(statusFilter = 'all', search = '') {
       <td>${s.paymentMethod || '—'}</td>
       <td>
         <div class="actions-cell">
-          <button class="btn-receipt" onclick="window.showSalaryReceipt('${s.id}')">Receipt</button>
-          <button class="btn-delete" onclick="window.deleteSalary('${s.id}')">Delete</button>
+          <button class="btn-receipt" data-id="${s.id}" data-action="showReceipt">Receipt</button>
+          <button class="btn-delete" data-id="${s.id}" data-action="deleteSalary">Delete</button>
         </div>
       </td>
     </tr>
   `).join('');
 
-  // Attach event listeners for delete buttons (already using onclick)
+  // Attach event listeners using data attributes instead of onclick
+  tbody.querySelectorAll('[data-action="showReceipt"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (window.showSalaryReceipt) window.showSalaryReceipt(btn.dataset.id);
+    });
+  });
+  tbody.querySelectorAll('[data-action="deleteSalary"]').forEach(btn => {
+    btn.addEventListener('click', () => deleteSalary(btn.dataset.id));
+  });
 }
 
 // ============================================================
@@ -165,6 +173,16 @@ function showAddSalaryModal() {
       receiptNo = `SAL-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
     }
 
+    // Generate unique salary ID
+    const random = Math.floor(1000 + Math.random() * 9000);
+    let salaryId = `SAL-${random}`;
+    // Check for duplicate salaryId
+    const isDuplicate = window.SALARY_RECORDS.some(s => s.salaryId === salaryId);
+    if (isDuplicate) {
+      const newRandom = Math.floor(1000 + Math.random() * 9000);
+      salaryId = `SAL-${newRandom}`;
+    }
+
     const newSalary = {
       employeeId,
       employeeName: employee.name,
@@ -175,7 +193,8 @@ function showAddSalaryModal() {
       status,
       paymentMethod: status === 'paid' ? paymentMethod : '',
       receiptNo: receiptNo,
-      paymentDate: status === 'paid' ? new Date().toISOString().split('T')[0] : ''
+      paymentDate: status === 'paid' ? new Date().toISOString().split('T')[0] : '',
+      salaryId: salaryId // <-- Added
     };
 
     const btn = document.querySelector('#modal .btn-primary');
@@ -243,6 +262,76 @@ async function deleteSalary(id) {
 }
 
 // ============================================================
+// SHOW SALARY RECEIPT (placehodler)
+// ============================================================
+
+function showSalaryReceipt(id) {
+  const record = window.SALARY_RECORDS.find(s => s.id === id);
+  if (!record) {
+    window.showToast('Record not found', 'error');
+    return;
+  }
+  // Build a simple receipt modal
+  const receiptHTML = `
+    <div style="text-align:center; padding:1rem 0;">
+      <h3 style="margin:0 0 0.5rem;">Salary Receipt</h3>
+      <p style="margin:0; color:var(--gray-500);">#${record.receiptNo || 'N/A'}</p>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; font-size:0.9rem;">
+      <span><strong>Employee:</strong> ${record.employeeName}</span>
+      <span><strong>Role:</strong> ${record.role}</span>
+      <span><strong>Month:</strong> ${record.month}</span>
+      <span><strong>Year:</strong> ${record.year}</span>
+      <span><strong>Amount:</strong> ₹${(record.amount || 0).toLocaleString()}</span>
+      <span><strong>Status:</strong> <span class="status-badge status-${record.status}">${record.status}</span></span>
+      <span><strong>Payment Method:</strong> ${record.paymentMethod || '—'}</span>
+      <span><strong>Payment Date:</strong> ${record.paymentDate || '—'}</span>
+    </div>
+  `;
+  window.openModal('Salary Receipt', receiptHTML, 'Close', () => window.closeModal());
+}
+
+// ============================================================
+// MIGRATION: ADD SALARY IDs TO ALL EXISTING RECORDS
+// ============================================================
+
+async function migrateSalaryIds() {
+  const salaryRecords = window.SALARY_RECORDS || [];
+  let updatedCount = 0;
+
+  for (const record of salaryRecords) {
+    // Skip if already has an ID
+    if (record.salaryId) continue;
+
+    // Generate unique ID
+    const random = Math.floor(1000 + Math.random() * 9000);
+    let salaryId = `SAL-${random}`;
+
+    // Check for duplicates in the existing list (just in case)
+    const isDuplicate = salaryRecords.some(s => s.salaryId === salaryId);
+    if (isDuplicate) {
+      const newRandom = Math.floor(1000 + Math.random() * 9000);
+      salaryId = `SAL-${newRandom}`;
+    }
+
+    try {
+      // Update Firebase
+      await updateData('salaryRecords', record.id, { salaryId });
+      // Update local array
+      record.salaryId = salaryId;
+      updatedCount++;
+    } catch (error) {
+      console.error(`Failed to migrate salary record for ${record.employeeName}:`, error);
+    }
+  }
+
+  if (updatedCount > 0) {
+    console.log(`✅ ${updatedCount} salary records updated with Salary IDs.`);
+  }
+  return updatedCount;
+}
+
+// ============================================================
 // EVENT BINDINGS
 // ============================================================
 
@@ -274,3 +363,5 @@ document.addEventListener('DOMContentLoaded', () => {
 window.renderSalary = renderSalary;
 window.showAddSalaryModal = showAddSalaryModal;
 window.deleteSalary = deleteSalary;
+window.showSalaryReceipt = showSalaryReceipt;
+window.migrateSalaryIds = migrateSalaryIds; // <-- Added
