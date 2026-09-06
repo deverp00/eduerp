@@ -24,7 +24,7 @@ const toastContainer = document.getElementById('toastContainer');
 const loadingOverlay = document.getElementById('loadingOverlay');
 const notificationBtn = document.getElementById('notificationBtn');
 const badgeDot = document.querySelector('.badge-dot');
-const logoutBtn = document.getElementById('logoutBtn');
+// const logoutBtn = document.getElementById('logoutBtn'); // REMOVED – handled by login.js
 
 let currentPage = 'dashboard';
 let modalCallback = null;
@@ -168,22 +168,8 @@ if (badgeDot) {
 }
 
 // ============================================================
-// LOGOUT HANDLER
+// LOGOUT HANDLER – REMOVED (now handled exclusively by login.js)
 // ============================================================
-
-if (logoutBtn) {
-  logoutBtn.addEventListener('click', async () => {
-    try {
-      await logoutAdmin();
-      showToast('Logged out successfully.', 'success');
-      // Reload the page to trigger the login overlay from login.js
-      window.location.reload();
-    } catch (error) {
-      console.error('Logout error:', error);
-      showToast('Logout failed. Please try again.', 'error');
-    }
-  });
-}
 
 // ============================================================
 // GLOBAL DATA STORES
