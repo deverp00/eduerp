@@ -294,6 +294,15 @@ function exportAnalyticsExcel() {
 }
 
 // ============================================================
+// MIGRATION: Placeholder (no data managed by this module)
+// ============================================================
+
+async function migrateAnalyticsIds() {
+  console.log('✅ Analytics module: No migration needed – reads from global data stores.');
+  return 0;
+}
+
+// ============================================================
 // EVENT BINDINGS
 // ============================================================
 
@@ -320,3 +329,4 @@ window.applyAnalyticsFilters = applyAnalyticsFilters;
 window.resetAnalyticsFilters = resetAnalyticsFilters;
 window.exportAnalyticsPDF = exportAnalyticsPDF;
 window.exportAnalyticsExcel = exportAnalyticsExcel;
+window.migrateAnalyticsIds = migrateAnalyticsIds; // <-- Added for consistency
