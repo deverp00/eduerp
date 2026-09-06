@@ -261,6 +261,48 @@ async function deleteStaff(id) {
 }
 
 // ============================================================
+// MIGRATION: ADD EMPLOYEE IDs TO ALL EXISTING STAFF
+// ============================================================
+
+async function migrateEmployeeIds() {
+  const teachers = window.TEACHERS || [];
+  let updatedCount = 0;
+
+  for (const teacher of teachers) {
+    // Skip if already has an ID
+    if (teacher.employeeId) continue;
+
+    // Generate unique ID
+    const prefix = teacher.role === 'teacher' ? 'TCH' : 'STF';
+    const random = Math.floor(1000 + Math.random() * 9000);
+    const employeeId = `${prefix}-${random}`;
+
+    // Check for duplicates in the existing list (just in case)
+    const isDuplicate = teachers.some(t => t.employeeId === employeeId);
+    if (isDuplicate) {
+      // Regenerate with a different number
+      const newRandom = Math.floor(1000 + Math.random() * 9000);
+      employeeId = `${prefix}-${newRandom}`;
+    }
+
+    try {
+      // Update Firebase
+      await updateData('teachers', teacher.id, { employeeId });
+      // Update local array
+      teacher.employeeId = employeeId;
+      updatedCount++;
+    } catch (error) {
+      console.error(`Failed to migrate employee ${teacher.name}:`, error);
+    }
+  }
+
+  if (updatedCount > 0) {
+    console.log(`✅ ${updatedCount} employees updated with Employee IDs.`);
+  }
+  return updatedCount;
+}
+
+// ============================================================
 // EVENT BINDINGS
 // ============================================================
 
@@ -293,3 +335,4 @@ window.renderStaff = renderStaff;
 window.showAddStaffModal = showAddStaffModal;
 window.editStaff = editStaff;
 window.deleteStaff = deleteStaff;
+window.migrateEmployeeIds = migrateEmployeeIds; // <-- Added this
