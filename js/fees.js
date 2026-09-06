@@ -299,14 +299,20 @@ async function processFeePayment(studentId) {
   if (btn) { btn.disabled = true; btn.textContent = 'Processing...'; }
 
   try {
-    const receiptNo = `RCP-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+    const settings = window.SETTINGS || {};
+    const feePrefix = settings.feeIdPrefix || 'FEE';
+    const payPrefix = settings.paymentIdPrefix || 'PAY';
+    const receiptPrefix = settings.receiptPrefix || 'RCP';
+
+    const receiptNo = `${receiptPrefix}-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+
     // Generate feeId
     const random = Math.floor(1000 + Math.random() * 9000);
-    let feeId = `FEE-${random}`;
+    let feeId = `${feePrefix}-${random}`;
     const isDuplicate = window.FEE_RECORDS.some(f => f.feeId === feeId);
     if (isDuplicate) {
       const newRandom = Math.floor(1000 + Math.random() * 9000);
-      feeId = `FEE-${newRandom}`;
+      feeId = `${feePrefix}-${newRandom}`;
     }
 
     const newFee = {
@@ -324,11 +330,11 @@ async function processFeePayment(studentId) {
 
     // Create payment history with paymentId
     const payRandom = Math.floor(1000 + Math.random() * 9000);
-    let paymentId = `PAY-${payRandom}`;
+    let paymentId = `${payPrefix}-${payRandom}`;
     const payDuplicate = window.PAYMENTS.some(p => p.paymentId === paymentId);
     if (payDuplicate) {
       const newPayRandom = Math.floor(1000 + Math.random() * 9000);
-      paymentId = `PAY-${newPayRandom}`;
+      paymentId = `${payPrefix}-${newPayRandom}`;
     }
 
     const payment = {
@@ -409,13 +415,17 @@ async function payFee(feeId) {
         window.FEE_RECORDS[idx] = { ...window.FEE_RECORDS[idx], ...updated };
       }
 
-      const receiptNo = `RCP-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+      const settings = window.SETTINGS || {};
+      const receiptPrefix = settings.receiptPrefix || 'RCP';
+      const payPrefix = settings.paymentIdPrefix || 'PAY';
+      const receiptNo = `${receiptPrefix}-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+
       const payRandom = Math.floor(1000 + Math.random() * 9000);
-      let paymentId = `PAY-${payRandom}`;
+      let paymentId = `${payPrefix}-${payRandom}`;
       const payDuplicate = window.PAYMENTS.some(p => p.paymentId === paymentId);
       if (payDuplicate) {
         const newPayRandom = Math.floor(1000 + Math.random() * 9000);
-        paymentId = `PAY-${newPayRandom}`;
+        paymentId = `${payPrefix}-${newPayRandom}`;
       }
 
       const payment = {
@@ -513,15 +523,17 @@ function openBulkCollectModal() {
     const students = window.STUDENTS.filter(s => s.class === classVal && s.section === section);
     let successCount = 0;
     let errorCount = 0;
+    const settings = window.SETTINGS || {};
+    const feePrefix = settings.feeIdPrefix || 'FEE';
 
     for (const s of students) {
       try {
         const random = Math.floor(1000 + Math.random() * 9000);
-        let feeId = `FEE-${random}`;
+        let feeId = `${feePrefix}-${random}`;
         const isDuplicate = window.FEE_RECORDS.some(f => f.feeId === feeId);
         if (isDuplicate) {
           const newRandom = Math.floor(1000 + Math.random() * 9000);
-          feeId = `FEE-${newRandom}`;
+          feeId = `${feePrefix}-${newRandom}`;
         }
         const newFee = {
           studentId: s.id,
@@ -558,11 +570,11 @@ const processBulkCollection = openBulkCollectModal;
 // ============================================================
 
 function applyFeeFilters() {
-  const session = document.getElementById('feeSession').value;
-  const classFilter = document.getElementById('feeClassFilter').value;
-  const monthFilter = document.getElementById('feeMonthFilter').value;
-  const statusFilter = document.getElementById('feeStatusFilter').value;
-  const search = document.getElementById('feeUniversalSearch').value;
+  const session = document.getElementById('feeSession')?.value || '2025-26';
+  const classFilter = document.getElementById('feeClassFilter')?.value || 'all';
+  const monthFilter = document.getElementById('feeMonthFilter')?.value || 'all';
+  const statusFilter = document.getElementById('feeStatusFilter')?.value || 'all';
+  const search = document.getElementById('feeUniversalSearch')?.value || '';
   renderFees(session, classFilter, monthFilter, statusFilter, search);
 }
 
@@ -583,7 +595,8 @@ function initFeeModule() {
   const bulkBtn = document.getElementById('feeCollectBulkBtn');
   if (bulkBtn) bulkBtn.addEventListener('click', openBulkCollectModal);
 
-  document.getElementById('addFeeBtn').addEventListener('click', showAddFeeModal);
+  const addBtn = document.getElementById('addFeeBtn');
+  if (addBtn) addBtn.addEventListener('click', showAddFeeModal);
 
   const searchInput = document.getElementById('feeUniversalSearch');
   if (searchInput) {
@@ -622,8 +635,15 @@ function setupAddFeeForm() {
   const submitBtn = document.getElementById('addFeeSubmitBtn');
   if (!submitBtn) return;
 
-  // Conditional logic for "Others" fee type
+  // Populate fee type dropdown from settings
   const feeTypeSelect = document.getElementById('addFeeType');
+  if (feeTypeSelect) {
+    const settings = window.SETTINGS || {};
+    const types = settings.feeTypeOptions || ['Admission Fee','Monthly Fee','Annual Fee','Examination Fee','Others'];
+    feeTypeSelect.innerHTML = types.map(t => `<option value="${t}">${t}</option>`).join('');
+  }
+
+  // Conditional logic for "Others"
   const customGroup = document.getElementById('addCustomFeeGroup');
   if (feeTypeSelect && customGroup) {
     const toggle = () => {
@@ -652,13 +672,15 @@ function setupAddFeeForm() {
       return;
     }
 
-    // Generate feeId
+    // Generate feeId using settings prefix
+    const settings = window.SETTINGS || {};
+    const feePrefix = settings.feeIdPrefix || 'FEE';
     const random = Math.floor(1000 + Math.random() * 9000);
-    let feeId = `FEE-${random}`;
+    let feeId = `${feePrefix}-${random}`;
     const isDuplicate = window.FEE_RECORDS.some(f => f.feeId === feeId);
     if (isDuplicate) {
       const newRandom = Math.floor(1000 + Math.random() * 9000);
-      feeId = `FEE-${newRandom}`;
+      feeId = `${feePrefix}-${newRandom}`;
     }
 
     const newFee = {
@@ -736,16 +758,18 @@ async function deleteFee(id) {
 async function migrateFeeIds() {
   const fees = window.FEE_RECORDS || [];
   let updatedCount = 0;
+  const settings = window.SETTINGS || {};
+  const prefix = settings.feeIdPrefix || 'FEE';
 
   for (const fee of fees) {
     if (fee.feeId) continue;
 
     const random = Math.floor(1000 + Math.random() * 9000);
-    let feeId = `FEE-${random}`;
+    let feeId = `${prefix}-${random}`;
     const isDuplicate = fees.some(f => f.feeId === feeId);
     if (isDuplicate) {
       const newRandom = Math.floor(1000 + Math.random() * 9000);
-      feeId = `FEE-${newRandom}`;
+      feeId = `${prefix}-${newRandom}`;
     }
 
     try {
@@ -758,7 +782,7 @@ async function migrateFeeIds() {
   }
 
   if (updatedCount > 0) {
-    console.log(`✅ ${updatedCount} fee records updated with Fee IDs.`);
+    console.log(`${updatedCount} fee records updated with Fee IDs.`);
   }
   return updatedCount;
 }
@@ -770,16 +794,18 @@ async function migrateFeeIds() {
 async function migratePaymentIds() {
   const payments = window.PAYMENTS || [];
   let updatedCount = 0;
+  const settings = window.SETTINGS || {};
+  const prefix = settings.paymentIdPrefix || 'PAY';
 
   for (const payment of payments) {
     if (payment.paymentId) continue;
 
     const random = Math.floor(1000 + Math.random() * 9000);
-    let paymentId = `PAY-${random}`;
+    let paymentId = `${prefix}-${random}`;
     const isDuplicate = payments.some(p => p.paymentId === paymentId);
     if (isDuplicate) {
       const newRandom = Math.floor(1000 + Math.random() * 9000);
-      paymentId = `PAY-${newRandom}`;
+      paymentId = `${prefix}-${newRandom}`;
     }
 
     try {
@@ -792,7 +818,7 @@ async function migratePaymentIds() {
   }
 
   if (updatedCount > 0) {
-    console.log(`✅ ${updatedCount} payment records updated with Payment IDs.`);
+    console.log(`${updatedCount} payment records updated with Payment IDs.`);
   }
   return updatedCount;
 }
