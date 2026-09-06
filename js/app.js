@@ -2,7 +2,8 @@
 // CORE APPLICATION – Navigation, Modal, Toast, Loading, Data
 // ============================================================
 
-import { getCurrentUser, getAllData, logoutAdmin } from './firebase.js';
+import { getCurrentUser, getAllData } from './firebase.js';
+import { initSettings } from './settings.js';
 
 // ============================================================
 // DOM REFS
@@ -24,7 +25,6 @@ const toastContainer = document.getElementById('toastContainer');
 const loadingOverlay = document.getElementById('loadingOverlay');
 const notificationBtn = document.getElementById('notificationBtn');
 const badgeDot = document.querySelector('.badge-dot');
-// const logoutBtn = document.getElementById('logoutBtn'); // REMOVED – handled by login.js
 
 let currentPage = 'dashboard';
 let modalCallback = null;
@@ -67,11 +67,25 @@ function closeModal() {
 }
 
 // ============================================================
+// SHOW / HIDE SETTINGS NAV LINK
+// ============================================================
+
+function showSettingsLink(show) {
+  const item = document.getElementById('settingsNavItem');
+  if (item) {
+    item.style.display = show ? '' : 'none';
+  }
+}
+
+// ============================================================
 // NAVIGATION
 // ============================================================
 
 function navigateTo(page) {
   currentPage = page;
+  const isAddPage = page.startsWith('add-');
+  document.body.classList.toggle('add-page', isAddPage);
+
   document.querySelectorAll('.nav-link').forEach(link => {
     link.classList.toggle('active', link.dataset.page === page);
   });
@@ -82,29 +96,38 @@ function navigateTo(page) {
   const target = document.getElementById(`page-${page}`);
   if (target) target.classList.add('active');
 
-      const titles = {
-        dashboard: 'Dashboard',
-        students: 'Students',
-        teachers: 'Teachers & Staff',
-        fees: 'Fee Management',
-        salary: 'Salary',
-        analytics: 'Reports & Analytics',
-        attendance: 'Attendance',
-    };
-  const title = titles[page] || 'Dashboard';
-  pageTitle.textContent = title;
-  document.title = `SchoolERP | ${title}`;
+  const titles = {
+    dashboard: 'Dashboard',
+    students: 'Students',
+    teachers: 'Teachers & Staff',
+    fees: 'Fee Management',
+    salary: 'Salary',
+    analytics: 'Reports & Analytics',
+    attendance: 'Attendance',
+    settings: 'Settings',
+  };
+  if (!isAddPage) {
+    const title = titles[page] || 'Dashboard';
+    pageTitle.textContent = title;
+    document.title = `SchoolERP | ${title}`;
+  } else {
+    pageTitle.textContent = 'Add Record';
+    document.title = 'SchoolERP | Add Record';
+  }
 
-      switch (page) {
-        case 'dashboard': if (window.renderDashboard) window.renderDashboard(); break;
-        case 'students': if (window.renderStudents) window.renderStudents(); break;
-        case 'teachers': if (window.renderStaff) window.renderStaff(); break;
-        case 'fees': if (window.renderFees) { window.renderFees(); if (window.initFeeModule) window.initFeeModule(); } break;
-        case 'salary': if (window.renderSalary) window.renderSalary(); break;
-        case 'analytics': if (window.renderAnalytics) window.renderAnalytics(); break;
-        case 'attendance': if (window.renderAttendance) window.renderAttendance(); break;
-        default: break;
+  if (!isAddPage) {
+    switch (page) {
+      case 'dashboard': if (window.renderDashboard) window.renderDashboard(); break;
+      case 'students': if (window.renderStudents) window.renderStudents(); break;
+      case 'teachers': if (window.renderStaff) window.renderStaff(); break;
+      case 'fees': if (window.renderFees) { window.renderFees(); if (window.initFeeModule) window.initFeeModule(); } break;
+      case 'salary': if (window.renderSalary) window.renderSalary(); break;
+      case 'analytics': if (window.renderAnalytics) window.renderAnalytics(); break;
+      case 'settings': if (window.renderSettings) window.renderSettings(); break;
+      case 'attendance': if (window.renderAttendance) window.renderAttendance(); break;
+      default: break;
     }
+  }
 
   if (window.innerWidth < 1024) {
     sidebar.classList.remove('open');
@@ -162,14 +185,9 @@ if (notificationBtn) {
   });
 }
 
-// Hide badge initially (no notifications)
 if (badgeDot) {
   badgeDot.style.display = 'none';
 }
-
-// ============================================================
-// LOGOUT HANDLER – REMOVED (now handled exclusively by login.js)
-// ============================================================
 
 // ============================================================
 // GLOBAL DATA STORES
@@ -183,7 +201,7 @@ window.PAYMENTS = [];
 window.ACTIVITIES = [];
 
 // ============================================================
-// LOAD DATA FROM FIREBASE
+// LOAD DATA FROM FIREBASE + RUN MIGRATIONS
 // ============================================================
 
 async function loadAllData() {
@@ -202,6 +220,18 @@ async function loadAllData() {
     window.SALARY_RECORDS = salary;
     window.PAYMENTS = payments;
     window.ACTIVITIES = activities;
+
+    // Run migrations
+    if (window.migrateStudentIds) await window.migrateStudentIds();
+    if (window.migrateEmployeeIds) await window.migrateEmployeeIds();
+    if (window.migrateFeeIds) await window.migrateFeeIds();
+    if (window.migratePaymentIds) await window.migratePaymentIds();
+    if (window.migrateSalaryIds) await window.migrateSalaryIds();
+    if (window.migrateReceiptIds) await window.migrateReceiptIds();
+    if (window.migrateExportIds) await window.migrateExportIds();
+    if (window.migrateDashboardIds) await window.migrateDashboardIds();
+    if (window.migrateAnalyticsIds) await window.migrateAnalyticsIds();
+
   } catch (error) {
     console.error('Error loading data:', error);
     showToast('Error loading data from Firebase', 'error');
@@ -209,7 +239,7 @@ async function loadAllData() {
 }
 
 // ============================================================
-// INIT – Check Auth & Load Data, then Navigate
+// INIT
 // ============================================================
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -221,13 +251,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     showToast('Please log in as admin to use the system.', 'info');
   } else {
     console.log('Authenticated as:', user.email);
+    showSettingsLink(true);
   }
 
   await loadAllData();
-  // Migrate existing teachers to have Employee IDs
-if (window.migrateEmployeeIds) {
-  await window.migrateEmployeeIds();
-}
+  await initSettings(); // load settings before rendering
   showLoading(false);
   navigateTo('dashboard');
 });
@@ -242,3 +270,4 @@ window.openModal = openModal;
 window.closeModal = closeModal;
 window.navigateTo = navigateTo;
 window.loadAllData = loadAllData;
+window.showSettingsLink = showSettingsLink;
