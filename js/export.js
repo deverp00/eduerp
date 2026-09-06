@@ -227,13 +227,11 @@ function exportToCSV(module) {
 
   window.showToast('Generating CSV...', 'info');
 
-  // Build CSV content
   let csv = headers.join(',') + '\n';
   rows.forEach(row => {
     csv += row.join(',') + '\n';
   });
 
-  // Create download link
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
@@ -248,7 +246,7 @@ function exportToCSV(module) {
 // ============================================================
 
 async function migrateExportIds() {
-  console.log('✅ Export module: No migration needed – reads from global data stores.');
+  console.log('Export module: No migration needed – reads from global data stores.');
   return 0;
 }
 
@@ -294,8 +292,6 @@ document.addEventListener('DOMContentLoaded', function() {
       else if (type === 'csv') exportToCSV('salary');
     });
   });
-
-  // Analytics exports are handled in analytics.js
 });
 
 // ============================================================
@@ -305,5 +301,5 @@ document.addEventListener('DOMContentLoaded', function() {
 window.exportToPDF = exportToPDF;
 window.exportToExcel = exportToExcel;
 window.exportToCSV = exportToCSV;
-window.getFilteredData = getFilteredData; // Exposed for analytics use
-window.migrateExportIds = migrateExportIds; // <-- Added for consistency
+window.getFilteredData = getFilteredData;
+window.migrateExportIds = migrateExportIds;
