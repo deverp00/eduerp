@@ -4,7 +4,6 @@
 
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
-
 import {
   getDatabase,
   ref,
@@ -14,7 +13,6 @@ import {
   remove,
   get
 } from "firebase/database";
-
 import {
   getAuth,
   signInWithEmailAndPassword,
@@ -43,7 +41,6 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const analytics = getAnalytics(app);
-
 const db = getDatabase(app);
 const auth = getAuth(app);
 
@@ -61,16 +58,11 @@ function loginAdmin(email, password) {
   return signInWithEmailAndPassword(auth, email, password)
     .then((userCredential) => {
       const user = userCredential.user;
-
-      // Enforce UID match – if not match, sign out immediately
       if (user.uid !== AUTHORIZED_ADMIN_UID) {
-        // Sign out to clear the invalid session
         return signOut(auth).then(() => {
-          // Throw the same error your login.js expects
           throw { code: 'auth/unauthorized-admin', message: 'Unauthorized admin access.' };
         });
       }
-
       return userCredential;
     });
 }
@@ -98,24 +90,20 @@ function sendPasswordReset(email) {
 
 function getAllData(path) {
   const dbRef = ref(db, path);
-
   return get(dbRef).then((snapshot) => {
     const data = snapshot.val();
-
     if (data) {
       return Object.keys(data).map((key) => ({
         id: key,
         ...data[key]
       }));
     }
-
     return [];
   });
 }
 
 function createData(path, data) {
   const newRef = push(ref(db, path));
-
   return set(newRef, data).then(() => ({
     id: newRef.key,
     ...data
@@ -134,8 +122,13 @@ function deleteData(path, id) {
 
 function getOneData(path, id) {
   const itemRef = ref(db, `${path}/${id}`);
-
   return get(itemRef).then((snapshot) => snapshot.val());
+}
+
+// NEW: Write data to a specific path with a fixed ID
+function setData(path, id, data) {
+  const itemRef = ref(db, `${path}/${id}`);
+  return set(itemRef, data);
 }
 
 // ============================================================
@@ -155,5 +148,6 @@ export {
   createData,
   updateData,
   deleteData,
-  getOneData
+  getOneData,
+  setData   // <-- new export
 };
