@@ -143,6 +143,15 @@
                         Reports & Analytics
                     </a>
                 </li>
+                <li id="settingsNavItem" style="display:none;">
+    <a href="#" class="nav-link" data-page="settings">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+        Settings
+    </a>
+</li>
             </ul>
         </nav>
         <div class="sidebar-footer">
@@ -480,6 +489,19 @@
                     <button class="btn btn-secondary" id="exportAnalyticsExcel"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="16" x2="16" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg> Export Excel</button>
                 </div>
             </section>
+            <!-- ===== SETTINGS ===== -->
+<section class="page-section" id="page-settings">
+    <div class="settings-container">
+        <h2 style="margin-top:0;">Settings</h2>
+        <p style="color:var(--gray-500); margin-bottom:2rem;">Configure your ERP preferences. All changes are saved to Firebase.</p>
+        <div id="settingsContent">
+            <div style="text-align:center; padding:3rem;">
+                <div class="loading-spinner" style="margin:0 auto;"></div>
+                <p style="color:var(--gray-500); margin-top:1rem;">Loading settings...</p>
+            </div>
+        </div>
+    </div>
+</section>
 
             <!-- ===== FULL‑PAGE ADD FORMS (NEW) ===== -->
 
