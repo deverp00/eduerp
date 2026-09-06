@@ -300,15 +300,16 @@ async function processFeePayment(studentId) {
 
   try {
     const receiptNo = `RCP-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
-    // Create fee record (this is a new payment, not an update of existing fee)
-    // But we want to update an existing fee record if it's for a specific fee.
-    // For simplicity, we'll create a new payment record and also update the associated fee record's paid/pending.
-    // However, the "Collect Fee" modal is typically for a student's overall balance, not a specific fee.
-    // We'll keep the existing behavior: it creates a new fee record of type 'Payment' and a payment history record.
-    // But we also need to update the specific fee record if it's a partial payment.
-    // To keep it simple, we'll create a new fee record of type 'Payment' (which is what the old code did).
-    // This will add to the total paid, but the original fee record remains unchanged.
-    // That's acceptable for this ERP design.
+    // Generate feeId
+    const random = Math.floor(1000 + Math.random() * 9000);
+    let feeId = `FEE-${random}`;
+    // Check for duplicate feeId (very unlikely, but safe)
+    const isDuplicate = window.FEE_RECORDS.some(f => f.feeId === feeId);
+    if (isDuplicate) {
+      const newRandom = Math.floor(1000 + Math.random() * 9000);
+      feeId = `FEE-${newRandom}`;
+    }
+
     const newFee = {
       studentId: studentId,
       feeType: 'Payment',
@@ -316,12 +317,21 @@ async function processFeePayment(studentId) {
       paid: received,
       pending: 0,
       status: 'paid',
-      receiptNo: receiptNo
+      receiptNo: receiptNo,
+      feeId: feeId // <-- Added
     };
     const feeResult = await createData('feeRecords', newFee);
     window.FEE_RECORDS.push(feeResult);
 
-    // Create payment history
+    // Create payment history with paymentId
+    const payRandom = Math.floor(1000 + Math.random() * 9000);
+    let paymentId = `PAY-${payRandom}`;
+    const payDuplicate = window.PAYMENTS.some(p => p.paymentId === paymentId);
+    if (payDuplicate) {
+      const newPayRandom = Math.floor(1000 + Math.random() * 9000);
+      paymentId = `PAY-${newPayRandom}`;
+    }
+
     const payment = {
       studentId: studentId,
       receiptNo: receiptNo,
@@ -329,7 +339,8 @@ async function processFeePayment(studentId) {
       month: new Date().toLocaleString('default', { month: 'long' }),
       amount: received,
       method: method,
-      status: 'paid'
+      status: 'paid',
+      paymentId: paymentId // <-- Added
     };
     const payResult = await createData('payments', payment);
     window.PAYMENTS.push(payResult);
@@ -400,8 +411,16 @@ async function payFee(feeId) {
         window.FEE_RECORDS[idx] = { ...window.FEE_RECORDS[idx], ...updated };
       }
 
-      // Add payment history
+      // Add payment history with paymentId
       const receiptNo = `RCP-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+      const payRandom = Math.floor(1000 + Math.random() * 9000);
+      let paymentId = `PAY-${payRandom}`;
+      const payDuplicate = window.PAYMENTS.some(p => p.paymentId === paymentId);
+      if (payDuplicate) {
+        const newPayRandom = Math.floor(1000 + Math.random() * 9000);
+        paymentId = `PAY-${newPayRandom}`;
+      }
+
       const payment = {
         studentId: fee.studentId,
         receiptNo: receiptNo,
@@ -409,7 +428,8 @@ async function payFee(feeId) {
         month: new Date().toLocaleString('default', { month: 'long' }),
         amount: amountPaid,
         method: method,
-        status: 'paid'
+        status: 'paid',
+        paymentId: paymentId // <-- Added
       };
       const payResult = await createData('payments', payment);
       window.PAYMENTS.push(payResult);
@@ -499,13 +519,22 @@ function openBulkCollectModal() {
 
     for (const s of students) {
       try {
+        const random = Math.floor(1000 + Math.random() * 9000);
+        let feeId = `FEE-${random}`;
+        // Check for duplicate (very unlikely)
+        const isDuplicate = window.FEE_RECORDS.some(f => f.feeId === feeId);
+        if (isDuplicate) {
+          const newRandom = Math.floor(1000 + Math.random() * 9000);
+          feeId = `FEE-${newRandom}`;
+        }
         const newFee = {
           studentId: s.id,
           feeType: feeType,
           amount: amount,
           paid: 0,
           pending: amount,
-          status: 'pending'
+          status: 'pending',
+          feeId: feeId // <-- Added
         };
         const result = await createData('feeRecords', newFee);
         window.FEE_RECORDS.push(result);
@@ -524,6 +553,9 @@ function openBulkCollectModal() {
     if (window.renderDashboard) window.renderDashboard();
   });
 }
+
+// Alias for backward compatibility
+const processBulkCollection = openBulkCollectModal;
 
 // ============================================================
 // FILTERS (Auto-apply)
@@ -601,13 +633,24 @@ function showAddFeeModal() {
       window.showToast('Please enter a valid amount', 'error');
       return;
     }
+
+    // Generate feeId
+    const random = Math.floor(1000 + Math.random() * 9000);
+    let feeId = `FEE-${random}`;
+    const isDuplicate = window.FEE_RECORDS.some(f => f.feeId === feeId);
+    if (isDuplicate) {
+      const newRandom = Math.floor(1000 + Math.random() * 9000);
+      feeId = `FEE-${newRandom}`;
+    }
+
     const newFee = {
       studentId,
       feeType: finalFeeType,
       amount,
       paid: 0,
       pending: amount,
-      status: 'pending'
+      status: 'pending',
+      feeId: feeId // <-- Added
     };
     const result = await createData('feeRecords', newFee);
     window.FEE_RECORDS.push(result);
@@ -672,6 +715,75 @@ async function deleteFee(id) {
 }
 
 // ============================================================
+// MIGRATION: ADD FEE IDs TO ALL EXISTING RECORDS
+// ============================================================
+
+async function migrateFeeIds() {
+  const fees = window.FEE_RECORDS || [];
+  let updatedCount = 0;
+
+  for (const fee of fees) {
+    if (fee.feeId) continue;
+
+    const random = Math.floor(1000 + Math.random() * 9000);
+    let feeId = `FEE-${random}`;
+    // Check for duplicates in the existing list
+    const isDuplicate = fees.some(f => f.feeId === feeId);
+    if (isDuplicate) {
+      const newRandom = Math.floor(1000 + Math.random() * 9000);
+      feeId = `FEE-${newRandom}`;
+    }
+
+    try {
+      await updateData('feeRecords', fee.id, { feeId });
+      fee.feeId = feeId;
+      updatedCount++;
+    } catch (error) {
+      console.error(`Failed to migrate fee for student ${fee.studentId}:`, error);
+    }
+  }
+
+  if (updatedCount > 0) {
+    console.log(`✅ ${updatedCount} fee records updated with Fee IDs.`);
+  }
+  return updatedCount;
+}
+
+// ============================================================
+// MIGRATION: ADD PAYMENT IDs TO ALL EXISTING PAYMENTS
+// ============================================================
+
+async function migratePaymentIds() {
+  const payments = window.PAYMENTS || [];
+  let updatedCount = 0;
+
+  for (const payment of payments) {
+    if (payment.paymentId) continue;
+
+    const random = Math.floor(1000 + Math.random() * 9000);
+    let paymentId = `PAY-${random}`;
+    const isDuplicate = payments.some(p => p.paymentId === paymentId);
+    if (isDuplicate) {
+      const newRandom = Math.floor(1000 + Math.random() * 9000);
+      paymentId = `PAY-${newRandom}`;
+    }
+
+    try {
+      await updateData('payments', payment.id, { paymentId });
+      payment.paymentId = paymentId;
+      updatedCount++;
+    } catch (error) {
+      console.error(`Failed to migrate payment for student ${payment.studentId}:`, error);
+    }
+  }
+
+  if (updatedCount > 0) {
+    console.log(`✅ ${updatedCount} payment records updated with Payment IDs.`);
+  }
+  return updatedCount;
+}
+
+// ============================================================
 // EXPOSE GLOBALLY
 // ============================================================
 
@@ -685,5 +797,7 @@ window.openCollectFeeModal = openCollectFeeModal;
 window.processFeePayment = processFeePayment;
 window.showPaymentHistory = showPaymentHistory;
 window.openBulkCollectModal = openBulkCollectModal;
-window.processBulkCollection = processBulkCollection;
+window.processBulkCollection = processBulkCollection; // Alias
 window.applyFeeFilters = applyFeeFilters;
+window.migrateFeeIds = migrateFeeIds; // <-- Added
+window.migratePaymentIds = migratePaymentIds; // <-- Added
