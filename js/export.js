@@ -244,6 +244,15 @@ function exportToCSV(module) {
 }
 
 // ============================================================
+// MIGRATION: Placeholder (no data managed by this module)
+// ============================================================
+
+async function migrateExportIds() {
+  console.log('✅ Export module: No migration needed – reads from global data stores.');
+  return 0;
+}
+
+// ============================================================
 // EVENT BINDINGS
 // ============================================================
 
@@ -296,3 +305,5 @@ document.addEventListener('DOMContentLoaded', function() {
 window.exportToPDF = exportToPDF;
 window.exportToExcel = exportToExcel;
 window.exportToCSV = exportToCSV;
+window.getFilteredData = getFilteredData; // Exposed for analytics use
+window.migrateExportIds = migrateExportIds; // <-- Added for consistency
