@@ -85,58 +85,56 @@ function getEligibleTeachers(month, year) {
 }
 
 // ============================================================
-// ADD SALARY (WITH ELIGIBILITY & DUPLICATE CHECK)
+// ADD SALARY – Navigate to full-page form
 // ============================================================
 
 function showAddSalaryModal() {
-  // Default to current month/year
+  window.navigateTo('add-salary');
+}
+
+// ============================================================
+// POPULATE SALARY FORM (dropdowns + eligibility)
+// ============================================================
+
+function populateSalaryForm() {
+  const monthSelect = document.getElementById('addSalaryMonth');
+  const yearSelect = document.getElementById('addSalaryYear');
+  const employeeSelect = document.getElementById('addSalaryEmployee');
+  if (!monthSelect || !yearSelect || !employeeSelect) return;
+
+  // Set default month/year to current
   const now = new Date();
   const defaultMonth = now.toLocaleString('default', { month: 'long' });
   const defaultYear = now.getFullYear();
 
-  // Get eligible teachers for default month/year
-  const eligible = getEligibleTeachers(defaultMonth, defaultYear);
-  const employeeOptions = eligible.map(t =>
-    `<option value="${t.id}">${t.name} (${t.role})</option>`
-  ).join('');
+  if (!monthSelect.value) monthSelect.value = defaultMonth;
+  if (!yearSelect.value) yearSelect.value = defaultYear;
 
-  const monthOptions = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
-    .map(m => `<option value="${m}" ${m === defaultMonth ? 'selected' : ''}>${m}</option>`).join('');
+  function updateEligibleTeachers() {
+    const m = monthSelect.value;
+    const y = parseInt(yearSelect.value);
+    const eligible = getEligibleTeachers(m, y);
+    employeeSelect.innerHTML = eligible.map(t =>
+      `<option value="${t.id}">${t.name} (${t.role})</option>`
+    ).join('') || '<option value="">No eligible teachers</option>';
+  }
 
-  const yearOptions = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i)
-    .map(y => `<option value="${y}" ${y === defaultYear ? 'selected' : ''}>${y}</option>`).join('');
+  updateEligibleTeachers();
 
-  const paymentMethodOptions = ['Bank Transfer', 'Cash', 'Cheque', 'Digital Wallet']
-    .map(p => `<option value="${p}">${p}</option>`).join('');
+  // Re-run when month or year changes
+  monthSelect.addEventListener('change', updateEligibleTeachers);
+  yearSelect.addEventListener('change', updateEligibleTeachers);
+}
 
-  const modalHTML = `
-    <div class="form-group"><label>Month</label>
-      <select id="addSalaryMonth" style="width:100%; padding:0.5rem; border:1px solid var(--gray-200); border-radius:var(--radius);">${monthOptions}</select>
-    </div>
-    <div class="form-group"><label>Year</label>
-      <select id="addSalaryYear" style="width:100%; padding:0.5rem; border:1px solid var(--gray-200); border-radius:var(--radius);">${yearOptions}</select>
-    </div>
-    <div class="form-group"><label>Teacher</label>
-      <select id="addSalaryEmployee" style="width:100%; padding:0.5rem; border:1px solid var(--gray-200); border-radius:var(--radius);">
-        ${employeeOptions || '<option value="">No eligible teachers</option>'}
-      </select>
-    </div>
-    <div class="form-group"><label>Amount (₹)</label><input type="number" id="addSalaryAmount" placeholder="Enter salary amount" style="width:100%; padding:0.5rem; border:1px solid var(--gray-200); border-radius:var(--radius);" /></div>
-    <div class="form-group"><label>Status</label>
-      <select id="addSalaryStatus" style="width:100%; padding:0.5rem; border:1px solid var(--gray-200); border-radius:var(--radius);">
-        <option value="paid">Paid</option>
-        <option value="pending">Pending</option>
-      </select>
-    </div>
-    <div class="form-group"><label>Payment Method</label>
-      <select id="addSalaryPaymentMethod" style="width:100%; padding:0.5rem; border:1px solid var(--gray-200); border-radius:var(--radius);">
-        <option value="">— Select —</option>
-        ${paymentMethodOptions}
-      </select>
-    </div>
-  `;
+// ============================================================
+// SUBMIT HANDLER FOR THE FULL-PAGE ADD FORM
+// ============================================================
 
-  window.openModal('Add Salary', modalHTML, 'Add Salary', async () => {
+function setupAddSalaryForm() {
+  const submitBtn = document.getElementById('addSalarySubmitBtn');
+  if (!submitBtn) return;
+
+  submitBtn.addEventListener('click', async function() {
     const month = document.getElementById('addSalaryMonth').value;
     const year = parseInt(document.getElementById('addSalaryYear').value);
     const employeeId = document.getElementById('addSalaryEmployee').value;
@@ -194,47 +192,25 @@ function showAddSalaryModal() {
       paymentMethod: status === 'paid' ? paymentMethod : '',
       receiptNo: receiptNo,
       paymentDate: status === 'paid' ? new Date().toISOString().split('T')[0] : '',
-      salaryId: salaryId // <-- Added
+      salaryId: salaryId
     };
 
-    const btn = document.querySelector('#modal .btn-primary');
-    if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Saving...';
 
     try {
       const result = await createData('salaryRecords', newSalary);
       window.SALARY_RECORDS.push(result);
       window.showToast('Salary record added successfully', 'success');
-      renderSalary();
-      if (window.renderDashboard) window.renderDashboard();
-      window.closeModal();
+      window.navigateTo('salary');
     } catch (error) {
       console.error('Add salary error:', error);
       window.showToast('Failed to add salary record. Please try again.', 'error');
     } finally {
-      if (btn) { btn.disabled = false; btn.textContent = 'Add Salary'; }
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Add Salary';
     }
   });
-
-  // Auto-refresh eligible teachers when month/year changes
-  setTimeout(() => {
-    const monthSelect = document.getElementById('addSalaryMonth');
-    const yearSelect = document.getElementById('addSalaryYear');
-    const employeeSelect = document.getElementById('addSalaryEmployee');
-
-    function updateEligibleTeachers() {
-      const m = monthSelect.value;
-      const y = parseInt(yearSelect.value);
-      const eligible = getEligibleTeachers(m, y);
-      employeeSelect.innerHTML = eligible.map(t =>
-        `<option value="${t.id}">${t.name} (${t.role})</option>`
-      ).join('') || '<option value="">No eligible teachers</option>';
-    }
-
-    if (monthSelect && yearSelect && employeeSelect) {
-      monthSelect.addEventListener('change', updateEligibleTeachers);
-      yearSelect.addEventListener('change', updateEligibleTeachers);
-    }
-  }, 50);
 }
 
 // ============================================================
@@ -262,7 +238,7 @@ async function deleteSalary(id) {
 }
 
 // ============================================================
-// SHOW SALARY RECEIPT (placehodler)
+// SHOW SALARY RECEIPT
 // ============================================================
 
 function showSalaryReceipt(id) {
@@ -271,7 +247,6 @@ function showSalaryReceipt(id) {
     window.showToast('Record not found', 'error');
     return;
   }
-  // Build a simple receipt modal
   const receiptHTML = `
     <div style="text-align:center; padding:1rem 0;">
       <h3 style="margin:0 0 0.5rem;">Salary Receipt</h3>
@@ -300,14 +275,11 @@ async function migrateSalaryIds() {
   let updatedCount = 0;
 
   for (const record of salaryRecords) {
-    // Skip if already has an ID
     if (record.salaryId) continue;
 
-    // Generate unique ID
     const random = Math.floor(1000 + Math.random() * 9000);
     let salaryId = `SAL-${random}`;
 
-    // Check for duplicates in the existing list (just in case)
     const isDuplicate = salaryRecords.some(s => s.salaryId === salaryId);
     if (isDuplicate) {
       const newRandom = Math.floor(1000 + Math.random() * 9000);
@@ -315,9 +287,7 @@ async function migrateSalaryIds() {
     }
 
     try {
-      // Update Firebase
       await updateData('salaryRecords', record.id, { salaryId });
-      // Update local array
       record.salaryId = salaryId;
       updatedCount++;
     } catch (error) {
@@ -354,6 +324,12 @@ document.addEventListener('DOMContentLoaded', () => {
       renderSalary(e.target.value, search);
     });
   }
+
+  // Populate the salary form dropdowns
+  populateSalaryForm();
+
+  // Set up the full-page add form submit
+  setupAddSalaryForm();
 });
 
 // ============================================================
@@ -364,4 +340,4 @@ window.renderSalary = renderSalary;
 window.showAddSalaryModal = showAddSalaryModal;
 window.deleteSalary = deleteSalary;
 window.showSalaryReceipt = showSalaryReceipt;
-window.migrateSalaryIds = migrateSalaryIds; // <-- Added
+window.migrateSalaryIds = migrateSalaryIds;
