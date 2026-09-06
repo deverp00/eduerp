@@ -3,16 +3,16 @@
 // ============================================================
 
 // ============================================================
-// SCHOOL INFORMATION (for receipts)
+// SCHOOL INFORMATION (for receipts) – CUSTOMIZE THESE
 // ============================================================
 
 const SCHOOL_INFO = {
-  name: 'Morning Glory English Academy',
-  address: 'Dikhlem Nepali Subba Gaon, West Karbi Anglong, Assam – 782248',
-  code: 'MGEA/2025/001',
-  phone: '+91 98765 43210',
-  email: 'info@mgea.edu.in',
-  website: 'www.mgea.edu.in'
+  name: '[Your School Name]',
+  address: '[Your School Address, City, State – Pincode]',
+  code: '[Your School Code]',
+  phone: '[Your Contact Number]',
+  email: '[Your Email]',
+  website: '[Your Website]'
 };
 
 // ============================================================
@@ -85,6 +85,9 @@ function showReceipt(id) {
   // Academic year – get from global or default
   const academicYear = window.ACADEMIC_YEAR || '2025-26';
 
+  // Use feeId if available, else fallback to id
+  const displayId = fee.feeId || fee.id || 'N/A';
+
   const receiptHTML = `
     <div class="receipt-wrapper" id="receiptContent">
       <!-- School Header -->
@@ -119,6 +122,7 @@ function showReceipt(id) {
         <div><strong>Admission No:</strong> ${student.admissionNo || 'N/A'}</div>
         <div><strong>Guardian:</strong> ${student.guardian || 'N/A'}</div>
         <div><strong>Fee Type:</strong> ${fee.feeType}</div>
+        <div><strong>Fee ID:</strong> ${displayId}</div>
       </div>
 
       <!-- Fee Details -->
@@ -188,6 +192,7 @@ function downloadReceiptPDF(id) {
   const paymentMethod = payment ? payment.method : 'N/A';
   const amountInWords = numberToWords(fee.amount);
   const academicYear = window.ACADEMIC_YEAR || '2025-26';
+  const displayId = fee.feeId || fee.id || 'N/A';
 
   const { jsPDF } = window.jspdf;
   if (!jsPDF) {
@@ -251,7 +256,8 @@ function downloadReceiptPDF(id) {
     ['Roll No', student.roll],
     ['Admission No', student.admissionNo || 'N/A'],
     ['Guardian', student.guardian || 'N/A'],
-    ['Fee Type', fee.feeType]
+    ['Fee Type', fee.feeType],
+    ['Fee ID', displayId]
   ];
   doc.setFillColor(248, 250, 252);
   doc.rect(margin, y - 2, pageWidth - 2*margin, studentRows.length * 7 + 4, 'F');
@@ -319,7 +325,7 @@ function viewReceipt(id) {
       window.showToast('Student not found', 'error');
       return;
     }
-    const receiptNumber = payment.receiptNo;
+    const receiptNumber = payment.receiptNo || `RCP-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
     const date = new Date(payment.date).toLocaleDateString('en-IN', {
       day: '2-digit',
       month: 'short',
@@ -328,6 +334,7 @@ function viewReceipt(id) {
     const academicYear = window.ACADEMIC_YEAR || '2025-26';
     const amountInWords = numberToWords(payment.amount);
     const statusClass = payment.status === 'paid' ? 'status-paid' : 'status-pending';
+    const displayId = payment.paymentId || payment.id || 'N/A';
 
     const receiptHTML = `
       <div class="receipt-wrapper" id="receiptContent">
@@ -356,6 +363,7 @@ function viewReceipt(id) {
           <div><strong>Admission No:</strong> ${student.admissionNo || 'N/A'}</div>
           <div><strong>Guardian:</strong> ${student.guardian || 'N/A'}</div>
           <div><strong>Month:</strong> ${payment.month || 'N/A'}</div>
+          <div><strong>Payment ID:</strong> ${displayId}</div>
         </div>
         <div class="receipt-details-grid">
           <div><strong>Amount:</strong> ₹${payment.amount.toLocaleString()}</div>
@@ -413,6 +421,34 @@ function printLastReceipt(studentId) {
 }
 
 // ============================================================
+// MIGRATION: Coordinate ID migrations for dependent modules
+// ============================================================
+
+async function migrateReceiptIds() {
+  console.log('🔄 Checking receipt dependencies...');
+  let totalMigrated = 0;
+
+  // Migrate fee IDs if the function exists
+  if (window.migrateFeeIds) {
+    const feeCount = await window.migrateFeeIds();
+    totalMigrated += feeCount || 0;
+  } else {
+    console.warn('⚠️ migrateFeeIds not found – skipping fee ID migration.');
+  }
+
+  // Migrate payment IDs if the function exists
+  if (window.migratePaymentIds) {
+    const paymentCount = await window.migratePaymentIds();
+    totalMigrated += paymentCount || 0;
+  } else {
+    console.warn('⚠️ migratePaymentIds not found – skipping payment ID migration.');
+  }
+
+  console.log(`✅ Receipt migration completed. ${totalMigrated} records updated.`);
+  return totalMigrated;
+}
+
+// ============================================================
 // EXPOSE GLOBALLY
 // ============================================================
 
@@ -421,4 +457,5 @@ window.downloadReceiptPDF = downloadReceiptPDF;
 window.viewReceipt = viewReceipt;
 window.reprintReceipt = reprintReceipt;
 window.printLastReceipt = printLastReceipt;
+window.migrateReceiptIds = migrateReceiptIds;
 window.SCHOOL_INFO = SCHOOL_INFO;
