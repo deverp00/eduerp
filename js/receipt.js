@@ -428,7 +428,6 @@ async function migrateReceiptIds() {
   console.log('🔄 Checking receipt dependencies...');
   let totalMigrated = 0;
 
-  // Migrate fee IDs if the function exists
   if (window.migrateFeeIds) {
     const feeCount = await window.migrateFeeIds();
     totalMigrated += feeCount || 0;
@@ -436,7 +435,6 @@ async function migrateReceiptIds() {
     console.warn('⚠️ migrateFeeIds not found – skipping fee ID migration.');
   }
 
-  // Migrate payment IDs if the function exists
   if (window.migratePaymentIds) {
     const paymentCount = await window.migratePaymentIds();
     totalMigrated += paymentCount || 0;
