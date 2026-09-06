@@ -110,6 +110,10 @@ function showAddStudentModal() {
       return;
     }
 
+    // Generate a unique student ID
+    const random = Math.floor(1000 + Math.random() * 9000);
+    const studentId = `STU-${random}`;
+
     const newStudent = {
       name,
       class: classVal,
@@ -117,6 +121,7 @@ function showAddStudentModal() {
       roll,
       feeStatus,
       admissionNo: admissionNo || `ADM${String(Date.now()).slice(-6)}`,
+      studentId: studentId, // <-- Added
       mobile: mobile || '',
       guardian: guardian || '',
       photo: ''
@@ -192,6 +197,7 @@ async function editStudent(id) {
       roll,
       feeStatus,
       admissionNo: admissionNo || student.admissionNo,
+      studentId: student.studentId || `STU-${Math.floor(1000 + Math.random() * 9000)}`, // preserve or generate
       mobile: mobile || '',
       guardian: guardian || '',
       photo: student.photo || ''
@@ -242,6 +248,46 @@ async function deleteStudent(id) {
 }
 
 // ============================================================
+// MIGRATION: ADD STUDENT IDs TO ALL EXISTING STUDENTS
+// ============================================================
+
+async function migrateStudentIds() {
+  const students = window.STUDENTS || [];
+  let updatedCount = 0;
+
+  for (const student of students) {
+    // Skip if already has an ID
+    if (student.studentId) continue;
+
+    // Generate unique ID
+    const random = Math.floor(1000 + Math.random() * 9000);
+    let studentId = `STU-${random}`;
+
+    // Check for duplicates in the existing list (just in case)
+    const isDuplicate = students.some(s => s.studentId === studentId);
+    if (isDuplicate) {
+      const newRandom = Math.floor(1000 + Math.random() * 9000);
+      studentId = `STU-${newRandom}`;
+    }
+
+    try {
+      // Update Firebase
+      await updateData('students', student.id, { studentId });
+      // Update local array
+      student.studentId = studentId;
+      updatedCount++;
+    } catch (error) {
+      console.error(`Failed to migrate student ${student.name}:`, error);
+    }
+  }
+
+  if (updatedCount > 0) {
+    console.log(`✅ ${updatedCount} students updated with Student IDs.`);
+  }
+  return updatedCount;
+}
+
+// ============================================================
 // EVENT BINDINGS
 // ============================================================
 
@@ -274,3 +320,4 @@ window.renderStudents = renderStudents;
 window.showAddStudentModal = showAddStudentModal;
 window.editStudent = editStudent;
 window.deleteStudent = deleteStudent;
+window.migrateStudentIds = migrateStudentIds; // <-- Added
