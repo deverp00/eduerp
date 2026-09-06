@@ -298,7 +298,7 @@ function exportAnalyticsExcel() {
 // ============================================================
 
 async function migrateAnalyticsIds() {
-  console.log('✅ Analytics module: No migration needed – reads from global data stores.');
+  console.log('Analytics module: No migration needed – reads from global data stores.');
   return 0;
 }
 
@@ -329,4 +329,4 @@ window.applyAnalyticsFilters = applyAnalyticsFilters;
 window.resetAnalyticsFilters = resetAnalyticsFilters;
 window.exportAnalyticsPDF = exportAnalyticsPDF;
 window.exportAnalyticsExcel = exportAnalyticsExcel;
-window.migrateAnalyticsIds = migrateAnalyticsIds; // <-- Added for consistency
+window.migrateAnalyticsIds = migrateAnalyticsIds;
