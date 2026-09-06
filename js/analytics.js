@@ -25,17 +25,20 @@ function renderAnalytics() {
   const totalSalaryPending = salary.filter(s => s.status === 'pending').reduce((sum, s) => sum + (s.amount || 0), 0);
   const overdueCount = fees.filter(f => f.status === 'overdue').length;
 
+  const settings = window.SETTINGS || {};
+  const currency = settings.currencySymbol || '₹';
+
   const statsGrid = document.getElementById('analyticsStatsGrid');
   if (statsGrid) {
     statsGrid.innerHTML = `
       <div class="stat-card"><span class="stat-label">Total Students</span><span class="stat-value">${totalStudents}</span></div>
       <div class="stat-card"><span class="stat-label">Total Teachers</span><span class="stat-value">${totalTeachers}</span></div>
       <div class="stat-card"><span class="stat-label">Total Staff</span><span class="stat-value">${totalStaff}</span></div>
-      <div class="stat-card"><span class="stat-label">Fee Collected</span><span class="stat-value">₹${totalCollected.toLocaleString()}</span></div>
-      <div class="stat-card"><span class="stat-label">Pending Fees</span><span class="stat-value">₹${totalPending.toLocaleString()}</span></div>
+      <div class="stat-card"><span class="stat-label">Fee Collected</span><span class="stat-value">${currency}${totalCollected.toLocaleString()}</span></div>
+      <div class="stat-card"><span class="stat-label">Pending Fees</span><span class="stat-value">${currency}${totalPending.toLocaleString()}</span></div>
       <div class="stat-card"><span class="stat-label">Overdue</span><span class="stat-value">${overdueCount}</span></div>
-      <div class="stat-card"><span class="stat-label">Salary Paid</span><span class="stat-value">₹${totalSalaryPaid.toLocaleString()}</span></div>
-      <div class="stat-card"><span class="stat-label">Salary Pending</span><span class="stat-value">₹${totalSalaryPending.toLocaleString()}</span></div>
+      <div class="stat-card"><span class="stat-label">Salary Paid</span><span class="stat-value">${currency}${totalSalaryPaid.toLocaleString()}</span></div>
+      <div class="stat-card"><span class="stat-label">Salary Pending</span><span class="stat-value">${currency}${totalSalaryPending.toLocaleString()}</span></div>
     `;
   }
 
@@ -110,6 +113,9 @@ function renderCharts() {
     monthlyData = [0, 0, 0, 0, 0, 0];
   }
 
+  const settings = window.SETTINGS || {};
+  const currency = settings.currencySymbol || '₹';
+
   const ctx2 = document.getElementById('chartFeeTrend');
   if (ctx2 && typeof Chart !== 'undefined') {
     chartInstances.feeTrend = new Chart(ctx2, {
@@ -117,7 +123,7 @@ function renderCharts() {
       data: {
         labels: monthLabels,
         datasets: [{
-          label: 'Fee Collected (₹)',
+          label: `Fee Collected (${currency})`,
           data: monthlyData,
           borderColor: 'rgb(59, 130, 246)',
           backgroundColor: 'rgba(59, 130, 246, 0.1)',
@@ -130,7 +136,7 @@ function renderCharts() {
         maintainAspectRatio: false,
         plugins: {
           legend: { display: false },
-          tooltip: { callbacks: { label: (ctx) => `₹${ctx.raw.toLocaleString()}` } }
+          tooltip: { callbacks: { label: (ctx) => `${currency}${ctx.raw.toLocaleString()}` } }
         },
         scales: { y: { beginAtZero: true } }
       }
@@ -274,16 +280,19 @@ function exportAnalyticsExcel() {
     return;
   }
 
+  const settings = window.SETTINGS || {};
+  const currency = settings.currencySymbol || '₹';
+
   const kpiData = [
     ['Metric', 'Value'],
     ['Total Students', window.STUDENTS.length],
     ['Total Teachers', window.TEACHERS.filter(t => t.role === 'teacher').length],
     ['Total Staff', window.TEACHERS.filter(t => t.role === 'staff').length],
-    ['Fee Collected', window.FEE_RECORDS.reduce((s, f) => s + (f.paid || 0), 0)],
-    ['Pending Fees', window.FEE_RECORDS.reduce((s, f) => s + (f.pending || 0), 0)],
+    ['Fee Collected', currency + window.FEE_RECORDS.reduce((s, f) => s + (f.paid || 0), 0)],
+    ['Pending Fees', currency + window.FEE_RECORDS.reduce((s, f) => s + (f.pending || 0), 0)],
     ['Overdue Records', window.FEE_RECORDS.filter(f => f.status === 'overdue').length],
-    ['Salary Paid', window.SALARY_RECORDS.filter(s => s.status === 'paid').reduce((s, rec) => s + (rec.amount || 0), 0)],
-    ['Salary Pending', window.SALARY_RECORDS.filter(s => s.status === 'pending').reduce((s, rec) => s + (rec.amount || 0), 0)],
+    ['Salary Paid', currency + window.SALARY_RECORDS.filter(s => s.status === 'paid').reduce((sum, rec) => sum + (rec.amount || 0), 0)],
+    ['Salary Pending', currency + window.SALARY_RECORDS.filter(s => s.status === 'pending').reduce((sum, rec) => sum + (rec.amount || 0), 0)],
   ];
 
   const ws = XLSX.utils.aoa_to_sheet(kpiData);
